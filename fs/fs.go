@@ -124,3 +124,9 @@ func contains(filter string, candidates []string) bool {
 	}
 	return false
 }
+
+// DefaultFinder returns a simple parallel finder with the default os.Readdir
+// lister
+func DefaultFinder() *ParallelFinder {
+	return &ParallelFinder{Lister: &basicLister{}}
+}
