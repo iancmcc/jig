@@ -39,7 +39,7 @@ var _ = Describe("ParallelFinder", func() {
 
 	It("finds children of a given name", func() {
 		var names []string
-		for s := range finder.FindBelowNamed("/a", "d") {
+		for s := range finder.FindBelowNamed("/a", "d", 0) {
 			names = append(names, s)
 		}
 		Ω(names).Should(ConsistOf("/a/c/d", "/a/b/d", "/a/c/d/d"))
@@ -47,10 +47,26 @@ var _ = Describe("ParallelFinder", func() {
 
 	It("finds children with children of a given name", func() {
 		var names []string
-		for s := range finder.FindBelowWithChildrenNamed("/a", "d") {
+		for s := range finder.FindBelowWithChildrenNamed("/a", "d", 0) {
 			names = append(names, s)
 		}
 		Ω(names).Should(ConsistOf("/a/c", "/a/b", "/a/c/d"))
+	})
+
+	It("finds the nearest children with a given name", func() {
+		var names []string
+		for s := range finder.FindBelowWithChildrenNamed("/a", "d", 1) {
+			names = append(names, s)
+		}
+		Ω(names).Should(ConsistOf("/a/c", "/a/b"))
+	})
+
+	It("finds the nearest children with children of a given name", func() {
+		var names []string
+		for s := range finder.FindBelowNamed("/a", "d", 1) {
+			names = append(names, s)
+		}
+		Ω(names).Should(ConsistOf("/a/c/d", "/a/b/d"))
 	})
 
 })

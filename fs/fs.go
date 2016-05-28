@@ -11,9 +11,9 @@ var empty []string
 // Finder can find files or directories that match strings
 type Finder interface {
 	// FindBelowNamed finds all files below path that are named match
-	FindBelowNamed(path, match string) <-chan string
+	FindBelowNamed(path, match string, depth int) <-chan string
 	// FindBelowNamed finds all files below path that have children named match
-	FindBelowWithChildrenNamed(path, match string) <-chan string
+	FindBelowWithChildrenNamed(path, match string, depth int) <-chan string
 }
 
 // Lister lists children below a given path
@@ -53,26 +53,30 @@ type ParallelFinder struct {
 }
 
 // FindBelowNamed satisfies the Finder interface
-func (f *ParallelFinder) FindBelowNamed(path, match string) <-chan string {
+func (f *ParallelFinder) FindBelowNamed(path, match string, depth int) <-chan string {
 	out := make(chan string)
-	var walk func(d string)
-	walk = func(d string) {
+	var walk func(d string, wdepth int)
+	walk = func(d string, wdepth int) {
 		defer f.wg.Done()
 		names, err := f.Lister.ListChildren(d)
 		if err != nil {
 			return
 		}
 		for _, name := range names {
-			f.wg.Add(1)
 			p := filepath.Join(d, name)
 			if match == name {
 				out <- p
+				if depth > 0 && wdepth >= depth {
+					continue
+				}
 			}
-			go walk(p)
+			wdepth++
+			f.wg.Add(1)
+			go walk(p, wdepth)
 		}
 	}
 	f.wg.Add(1)
-	go walk(path)
+	go walk(path, 1)
 	go func() {
 		defer close(out)
 		f.wg.Wait()
@@ -81,10 +85,10 @@ func (f *ParallelFinder) FindBelowNamed(path, match string) <-chan string {
 }
 
 // FindBelowWithChildrenNamed satisfies the Finder interface
-func (f *ParallelFinder) FindBelowWithChildrenNamed(path, match string) <-chan string {
+func (f *ParallelFinder) FindBelowWithChildrenNamed(path, match string, depth int) <-chan string {
 	out := make(chan string)
-	var walk func(d string)
-	walk = func(d string) {
+	var walk func(d string, wdepth int)
+	walk = func(d string, wdepth int) {
 		defer f.wg.Done()
 		names, err := f.Lister.ListChildren(d)
 		if err != nil {
@@ -92,14 +96,19 @@ func (f *ParallelFinder) FindBelowWithChildrenNamed(path, match string) <-chan s
 		}
 		if contains(match, names) {
 			out <- d
+			if depth > 0 && wdepth >= depth {
+				return
+			}
+			wdepth++
+
 		}
 		for _, name := range names {
 			f.wg.Add(1)
-			go walk(filepath.Join(d, name))
+			go walk(filepath.Join(d, name), wdepth)
 		}
 	}
 	f.wg.Add(1)
-	go walk(path)
+	go walk(path, 1)
 	go func() {
 		defer close(out)
 		f.wg.Wait()
