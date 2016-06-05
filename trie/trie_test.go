@@ -36,9 +36,7 @@ var _ = Describe("CharSortedTrie", func() {
 	Context("a Jaro-Winkler filter", func() {
 
 		var (
-			threshold    = float64(0.95)
-			prefixLength = float64(4)
-			weight       = float64(0.1)
+			threshold = float64(0.95)
 		)
 
 		It("should filter out below-threshold matches", func() {
@@ -48,7 +46,7 @@ var _ = Describe("CharSortedTrie", func() {
 			t.Add("niece")
 			t.Add("since")
 
-			result := t.Filter("nines", prefixLength, weight, threshold)
+			result := t.Filter("nines", threshold)
 
 			Ω(result).Should(ConsistOf("nices", "since"))
 		})

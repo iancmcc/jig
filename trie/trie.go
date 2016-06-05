@@ -16,6 +16,8 @@ func NewTrie() *CharSortedTrie {
 		root: &Node{
 			children: make(map[rune]*Node),
 		},
+		prefixLength: 4,
+		weight:       0.1,
 	}
 }
 
@@ -27,9 +29,11 @@ func (r runeSorter) Len() int           { return len(r) }
 
 // CharSortedTrie makes a trie
 type CharSortedTrie struct {
-	root   *Node
-	maxlen int
-	minlen int
+	root         *Node
+	maxlen       int
+	minlen       int
+	prefixLength float64
+	weight       float64
 }
 
 // Key returns the path of nodes under which this string would be stored
@@ -42,7 +46,7 @@ func (t *CharSortedTrie) Key(s string) []rune {
 // Add adds a string
 func (t *CharSortedTrie) Add(s string) {
 	t.root.Add(t.Key(s), s)
-	l := len(s)
+	l := len(s) - 1
 	if l > t.maxlen {
 		t.maxlen = l
 	}

@@ -2,9 +2,8 @@ package match
 
 import (
 	"sort"
-	"strings"
 
-	"github.com/xrash/smetrics"
+	"github.com/iancmcc/jig/trie"
 )
 
 type Matcher interface {
@@ -19,6 +18,7 @@ func DefaultMatcher(query string) Matcher {
 		inbox:          make(chan string),
 		boostThreshold: 0.7,
 		prefixSize:     4,
+		jwTrie:         trie.NewTrie(),
 	}
 }
 
@@ -46,13 +46,14 @@ type JaroWinklerPathMatcher struct {
 	boostThreshold float64
 	prefixSize     int
 	scores         ScoredArray
+	jwTrie         *trie.CharSortedTrie
 }
 
 func (m *JaroWinklerPathMatcher) Add(s string) {
-
-	strings.Split(s, "/") // TODO: Use proper path separator
-	score := smetrics.JaroWinkler(s, m.query, m.boostThreshold, m.prefixSize)
-	m.scores = append(m.scores, &JaroWinklerScored{s, score})
+	//strings.Split(s, "/") // TODO: Use proper path separator
+	m.jwTrie.Add(s)
+	//score := smetrics.JaroWinkler(s, m.query, m.boostThreshold, m.prefixSize)
+	//m.scores = append(m.scores, &JaroWinklerScored{s, score})
 }
 
 // Match returns the strings previously Added in sorted order
