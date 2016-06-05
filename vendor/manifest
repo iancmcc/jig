@@ -195,6 +195,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/xrash/smetrics",
+			"repository": "https://github.com/xrash/smetrics",
+			"vcs": "git",
+			"revision": "89572686a6f04704f277cc926d7178132df166d2",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/crypto/cast5",
 			"repository": "https://go.googlesource.com/crypto",
 			"vcs": "git",
