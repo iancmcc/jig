@@ -19,7 +19,6 @@ func DefaultMatcher(query string) Matcher {
 		inbox:          make(chan string),
 		boostThreshold: 0.7,
 		prefixSize:     4,
-		//jwTries:        map[int]*trie.CharSortedTrie{},
 	}
 }
 
@@ -54,7 +53,6 @@ type JaroWinklerPathMatcher struct {
 	boostThreshold float64
 	prefixSize     int
 	scores         ScoredArray
-	//jwTries        map[int]*trie.CharSortedTrie
 }
 
 func Tokenize(s string) []string {
@@ -72,14 +70,6 @@ func (m *JaroWinklerPathMatcher) Add(s string) {
 	for i := maxlen; i >= 0; i-- {
 		if len(segments[i]) > 0 {
 			path = segments[i] + path
-			/*
-				thetrie, ok := m.jwTries[i]
-				if !ok {
-					thetrie = trie.NewTrie()
-					m.jwTries[i] = thetrie
-				}
-				thetrie.Add(path, s)
-			*/
 			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
 		}
 	}
@@ -95,17 +85,6 @@ func (m *JaroWinklerPathMatcher) Match() []string {
 			results[value.key] = &JaroWinklerScored{value.key, score}
 		}
 	}
-	/*
-		for _, trie := range m.jwTries {
-			for _, value := range trie.Filter(m.query, 0.7) {
-				score := smetrics.JaroWinkler(m.query, value.Key, m.boostThreshold, m.prefixSize)
-				v, ok := results[value.Value]
-				if !ok || v.score < score && score >= m.minScore {
-					results[value.Value] = &JaroWinklerScored{value.Value, score}
-				}
-			}
-		}
-	*/
 	for _, v := range results {
 		m.scores = append(m.scores, v)
 	}
