@@ -32,16 +32,17 @@ func dMax(prefixLength, weight float64, ls, lt, m int) float64 {
 // Filter filters out candidates that will definitely have a Jaro-Winkler score
 // below a given threshold by doing a depth-first traversal of the trie and
 // checking matching characters
-func (t *CharSortedTrie) Filter(s string, threshold float64) []string {
+func (t *CharSortedTrie) Filter(s string, threshold float64) []Value {
 	var (
 		item    tuple
 		stack   []tuple
-		matches []string
+		matches []Value
 		u       = t.Key(s)
 	)
 
 	needed := mNeeded(threshold, t.prefixLength, t.weight, len(u)-1, t.minlen)
 
+	t.Print()
 	for _, child := range t.root.children {
 		stack = append(stack, tuple{u, child, 0})
 	}
@@ -52,13 +53,15 @@ func (t *CharSortedTrie) Filter(s string, threshold float64) []string {
 		C, N, m := item.C, item.N, item.m
 		mMax := math.Min(float64(len(C)), float64((t.maxlen+1)-N.level+1)) + float64(m)
 		if mMax >= needed {
-			if N.key <= C[0] {
+			if len(C) > 0 && N.key <= C[0] {
 				if N.key == C[0] {
 					C = C[1:]
 					m++
 					if len(N.bucket) > 0 {
 						dm := dMax(t.prefixLength, t.weight, N.level, (len(u) - 1), m)
+						fmt.Println("dm:", dm, string(item.C))
 						if dm >= threshold {
+							fmt.Println("Appending matches %s", N.bucket)
 							matches = append(matches, N.bucket...)
 						}
 					}
@@ -66,7 +69,7 @@ func (t *CharSortedTrie) Filter(s string, threshold float64) []string {
 				for _, child := range N.children {
 					stack = append(stack, tuple{C, child, m})
 				}
-			} else {
+			} else if len(C) > 0 {
 				C = C[1:]
 				stack = append(stack, tuple{C, N, m})
 			}

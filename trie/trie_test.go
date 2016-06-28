@@ -21,9 +21,9 @@ var _ = Describe("CharSortedTrie", func() {
 		})
 
 		It("allows retrieval of the original strings", func() {
-			t.Add("since")
-			t.Add("nices")
-			t.Add("nice")
+			t.Add("since", "since")
+			t.Add("nices", "nices")
+			t.Add("nice", "nice")
 			Ω(t.Get("nices")).Should(ConsistOf("nices", "since"))
 			Ω(t.Get("ecins")).Should(ConsistOf("nices", "since"))
 			Ω(t.Get("nice")).Should(ConsistOf("nice"))
@@ -40,11 +40,11 @@ var _ = Describe("CharSortedTrie", func() {
 		)
 
 		It("should filter out below-threshold matches", func() {
-			t.Add("mices")
-			t.Add("nices")
-			t.Add("niche")
-			t.Add("niece")
-			t.Add("since")
+			t.Add("mices", "mices")
+			t.Add("nices", "nices")
+			t.Add("niche", "niche")
+			t.Add("niece", "niece")
+			t.Add("since", "since")
 
 			result := t.Filter("nines", threshold)
 

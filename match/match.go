@@ -2,8 +2,9 @@ package match
 
 import (
 	"sort"
+	"strings"
 
-	"github.com/iancmcc/jig/trie"
+	"github.com/xrash/smetrics"
 )
 
 type Matcher interface {
@@ -14,11 +15,10 @@ type Matcher interface {
 func DefaultMatcher(query string) Matcher {
 	return &JaroWinklerPathMatcher{
 		query:          query,
-		minScore:       0.5,
+		minScore:       0.7,
 		inbox:          make(chan string),
 		boostThreshold: 0.7,
 		prefixSize:     4,
-		jwTrie:         trie.NewTrie(),
 	}
 }
 
@@ -39,25 +39,51 @@ func (s ScoredArray) ToStringArray() (result []string) {
 	return
 }
 
+type Value struct {
+	key   string
+	value string
+}
+
 type JaroWinklerPathMatcher struct {
+	allstrings     []Value
 	query          string
 	minScore       float64
 	inbox          chan string
 	boostThreshold float64
 	prefixSize     int
 	scores         ScoredArray
-	jwTrie         *trie.CharSortedTrie
+}
+
+func Tokenize(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool {
+		return r == '/' || r == '-' || r == '.'
+	})
 }
 
 func (m *JaroWinklerPathMatcher) Add(s string) {
-	//strings.Split(s, "/") // TODO: Use proper path separator
-	m.jwTrie.Add(s)
-	//score := smetrics.JaroWinkler(s, m.query, m.boostThreshold, m.prefixSize)
-	//m.scores = append(m.scores, &JaroWinklerScored{s, score})
+	segments := Tokenize(s)
+	var path string
+	for i := len(segments) - 1; i >= 0; i-- {
+		if len(segments[i]) > 0 {
+			path = segments[i] + path
+			m.allstrings = append(m.allstrings, Value{s, path})
+		}
+	}
 }
 
 // Match returns the strings previously Added in sorted order
 func (m *JaroWinklerPathMatcher) Match() []string {
+	results := map[string]*JaroWinklerScored{}
+	for _, value := range m.allstrings {
+		score := smetrics.JaroWinkler(m.query, value.value, m.boostThreshold, m.prefixSize)
+		v, ok := results[value.key]
+		if !ok || v.score < score && score >= m.minScore {
+			results[value.key] = &JaroWinklerScored{value.key, score}
+		}
+	}
+	for _, v := range results {
+		m.scores = append(m.scores, v)
+	}
 	sort.Sort(m.scores)
 	return m.scores.ToStringArray()
 }

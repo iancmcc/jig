@@ -17,8 +17,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/iancmcc/jig/fs"
+	"github.com/iancmcc/jig/match"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +31,20 @@ var lsCmd = &cobra.Command{
 	Long:  `List repositories below the current directory`,
 	Run: func(cmd *cobra.Command, args []string) {
 		here, _ := os.Getwd()
-		for repo := range fs.DefaultFinder().FindBelowWithChildrenNamed(here, ".git", 1) {
+		here = strings.TrimSuffix(here, "/") + "/"
+		repos := fs.DefaultFinder().FindBelowWithChildrenNamed(here, ".git", 1)
+		if len(args) == 0 {
+			for repo := range repos {
+				fmt.Println(repo)
+			}
+			return
+		}
+		fmt.Println("Creating matcher with query ", args[0])
+		matcher := match.DefaultMatcher(args[0])
+		for repo := range repos {
+			matcher.Add(strings.TrimPrefix(repo, here))
+		}
+		for _, repo := range matcher.Match() {
 			fmt.Println(repo)
 		}
 	},

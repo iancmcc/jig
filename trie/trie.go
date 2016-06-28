@@ -2,7 +2,9 @@ package trie
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 )
 
 var (
@@ -36,6 +38,10 @@ type CharSortedTrie struct {
 	weight       float64
 }
 
+func (t *CharSortedTrie) Print() {
+	t.root.Print(0)
+}
+
 // Key returns the path of nodes under which this string would be stored
 func (t *CharSortedTrie) Key(s string) []rune {
 	r := runeSorter(s)
@@ -44,8 +50,8 @@ func (t *CharSortedTrie) Key(s string) []rune {
 }
 
 // Add adds a string
-func (t *CharSortedTrie) Add(s string) {
-	t.root.Add(t.Key(s), s)
+func (t *CharSortedTrie) Add(s, orig string) {
+	t.root.Add(t.Key(s), s, orig)
 	l := len(s) - 1
 	if l > t.maxlen {
 		t.maxlen = l
@@ -56,22 +62,37 @@ func (t *CharSortedTrie) Add(s string) {
 }
 
 // Get gets the strings associated with a key
-func (t *CharSortedTrie) Get(s string) []string {
+func (t *CharSortedTrie) Get(s string) []Value {
 	return t.root.Get(t.Key(s))
+}
+
+type Value struct {
+	Key   string
+	Value string
 }
 
 // Node is a node in a trie
 type Node struct {
 	key      rune
 	children map[rune]*Node
-	bucket   []string
+	bucket   []Value
 	level    int
 }
 
+func (n *Node) Print(level int) {
+	fmt.Println(strings.Repeat(" ", level), string(n.key))
+	for _, s := range n.bucket {
+		fmt.Println(strings.Repeat(" ", level), "--", s)
+	}
+	for _, child := range n.children {
+		child.Print(level + 1)
+	}
+}
+
 // Add adds a value to the trie node
-func (n *Node) Add(value []rune, orig string) {
+func (n *Node) Add(value []rune, segment, orig string) {
 	if len(value) == 0 {
-		n.bucket = append(n.bucket, orig)
+		n.bucket = append(n.bucket, Value{segment, orig})
 		return
 	}
 	key, rest := value[0], value[1:]
@@ -84,7 +105,7 @@ func (n *Node) Add(value []rune, orig string) {
 		}
 		n.children[key] = next
 	}
-	next.Add(rest, orig)
+	next.Add(rest, segment, orig)
 }
 
 func (n *Node) traverse(value []rune) (*Node, error) {
@@ -99,7 +120,7 @@ func (n *Node) traverse(value []rune) (*Node, error) {
 }
 
 // Get gets the strings associated with a source string
-func (n *Node) Get(value []rune) (result []string) {
+func (n *Node) Get(value []rune) (result []Value) {
 	if node, err := n.traverse(value); err == nil {
 		result = append(result, node.bucket...)
 	}
