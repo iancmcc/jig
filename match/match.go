@@ -15,10 +15,11 @@ type Matcher interface {
 func DefaultMatcher(query string) Matcher {
 	return &JaroWinklerPathMatcher{
 		query:          query,
-		minScore:       0.7,
+		minScore:       0.5,
 		inbox:          make(chan string),
 		boostThreshold: 0.7,
 		prefixSize:     4,
+		//jwTries:        map[int]*trie.CharSortedTrie{},
 	}
 }
 
@@ -42,6 +43,7 @@ func (s ScoredArray) ToStringArray() (result []string) {
 type Value struct {
 	key   string
 	value string
+	level int
 }
 
 type JaroWinklerPathMatcher struct {
@@ -52,6 +54,7 @@ type JaroWinklerPathMatcher struct {
 	boostThreshold float64
 	prefixSize     int
 	scores         ScoredArray
+	//jwTries        map[int]*trie.CharSortedTrie
 }
 
 func Tokenize(s string) []string {
@@ -62,11 +65,22 @@ func Tokenize(s string) []string {
 
 func (m *JaroWinklerPathMatcher) Add(s string) {
 	segments := Tokenize(s)
-	var path string
-	for i := len(segments) - 1; i >= 0; i-- {
+	var (
+		path   string
+		maxlen = len(segments) - 1
+	)
+	for i := maxlen; i >= 0; i-- {
 		if len(segments[i]) > 0 {
 			path = segments[i] + path
-			m.allstrings = append(m.allstrings, Value{s, path})
+			/*
+				thetrie, ok := m.jwTries[i]
+				if !ok {
+					thetrie = trie.NewTrie()
+					m.jwTries[i] = thetrie
+				}
+				thetrie.Add(path, s)
+			*/
+			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
 		}
 	}
 }
@@ -77,10 +91,21 @@ func (m *JaroWinklerPathMatcher) Match() []string {
 	for _, value := range m.allstrings {
 		score := smetrics.JaroWinkler(m.query, value.value, m.boostThreshold, m.prefixSize)
 		v, ok := results[value.key]
-		if !ok || v.score < score && score >= m.minScore {
+		if (!ok || v.score < score) && score >= m.minScore {
 			results[value.key] = &JaroWinklerScored{value.key, score}
 		}
 	}
+	/*
+		for _, trie := range m.jwTries {
+			for _, value := range trie.Filter(m.query, 0.7) {
+				score := smetrics.JaroWinkler(m.query, value.Key, m.boostThreshold, m.prefixSize)
+				v, ok := results[value.Value]
+				if !ok || v.score < score && score >= m.minScore {
+					results[value.Value] = &JaroWinklerScored{value.Value, score}
+				}
+			}
+		}
+	*/
 	for _, v := range results {
 		m.scores = append(m.scores, v)
 	}

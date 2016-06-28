@@ -35,11 +35,10 @@ var lsCmd = &cobra.Command{
 		repos := fs.DefaultFinder().FindBelowWithChildrenNamed(here, ".git", 1)
 		if len(args) == 0 {
 			for repo := range repos {
-				fmt.Println(repo)
+				fmt.Println(strings.TrimPrefix(repo, here))
 			}
 			return
 		}
-		fmt.Println("Creating matcher with query ", args[0])
 		matcher := match.DefaultMatcher(args[0])
 		for repo := range repos {
 			matcher.Add(strings.TrimPrefix(repo, here))
@@ -52,15 +51,6 @@ var lsCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(lsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// lsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	lsCmd.Flags().BoolP("exact", "x", false, "Return exact matches only (default is fuzzy matching)")
 
 }

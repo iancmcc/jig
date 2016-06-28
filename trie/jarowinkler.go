@@ -23,6 +23,15 @@ func mNeeded(threshold, prefixLength, weight float64, ls, lt int) float64 {
 	return math.Ceil(coefficient * rightside)
 }
 
+func lcp(a, b string) float64 {
+	for i := 0; i < len(a) && i < len(b) && i <= 4; i++ {
+		if a[i] != b[i] {
+			return float64(i)
+		}
+	}
+	return 0
+}
+
 func dMax(prefixLength, weight float64, ls, lt, m int) float64 {
 	m1, ls1, lt1 := float64(m), float64(ls), float64(lt)
 	lp := prefixLength * weight
@@ -42,7 +51,6 @@ func (t *CharSortedTrie) Filter(s string, threshold float64) []Value {
 
 	needed := mNeeded(threshold, t.prefixLength, t.weight, len(u)-1, t.minlen)
 
-	t.Print()
 	for _, child := range t.root.children {
 		stack = append(stack, tuple{u, child, 0})
 	}
@@ -58,10 +66,8 @@ func (t *CharSortedTrie) Filter(s string, threshold float64) []Value {
 					C = C[1:]
 					m++
 					if len(N.bucket) > 0 {
-						dm := dMax(t.prefixLength, t.weight, N.level, (len(u) - 1), m)
-						fmt.Println("dm:", dm, string(item.C))
+						dm := dMax(lcp(s, string(C)), t.weight, N.level, (len(u) - 1), m)
 						if dm >= threshold {
-							fmt.Println("Appending matches %s", N.bucket)
 							matches = append(matches, N.bucket...)
 						}
 					}
