@@ -66,6 +66,14 @@ func (t *CharSortedTrie) Get(s string) []Value {
 	return t.root.Get(t.Key(s))
 }
 
+func (t *CharSortedTrie) GetString(s string) []string {
+	var result []string
+	for _, val := range t.root.Get(t.Key(s)) {
+		result = append(result, val.Value)
+	}
+	return result
+}
+
 type Value struct {
 	Key   string
 	Value string

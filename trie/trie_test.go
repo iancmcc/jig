@@ -24,11 +24,11 @@ var _ = Describe("CharSortedTrie", func() {
 			t.Add("since", "since")
 			t.Add("nices", "nices")
 			t.Add("nice", "nice")
-			Ω(t.Get("nices")).Should(ConsistOf("nices", "since"))
-			Ω(t.Get("ecins")).Should(ConsistOf("nices", "since"))
-			Ω(t.Get("nice")).Should(ConsistOf("nice"))
-			Ω(t.Get("icen")).Should(ConsistOf("nice"))
-			Ω(t.Get("icer")).Should(BeEmpty())
+			Ω(t.GetString("nices")).Should(ConsistOf("nices", "since"))
+			Ω(t.GetString("ecins")).Should(ConsistOf("nices", "since"))
+			Ω(t.GetString("nice")).Should(ConsistOf("nice"))
+			Ω(t.GetString("icen")).Should(ConsistOf("nice"))
+			Ω(t.GetString("icer")).Should(BeEmpty())
 		})
 
 	})
@@ -36,7 +36,7 @@ var _ = Describe("CharSortedTrie", func() {
 	Context("a Jaro-Winkler filter", func() {
 
 		var (
-			threshold = float64(0.95)
+			threshold = float64(0.9)
 		)
 
 		It("should filter out below-threshold matches", func() {
@@ -46,7 +46,7 @@ var _ = Describe("CharSortedTrie", func() {
 			t.Add("niece", "niece")
 			t.Add("since", "since")
 
-			result := t.Filter("nines", threshold)
+			result := t.FilterString("nines", threshold)
 
 			Ω(result).Should(ConsistOf("nices", "since"))
 		})

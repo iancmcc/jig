@@ -34,10 +34,10 @@ var _ = Describe("JaroWinklerPathMatcher", func() {
 		Ω(results[0]).Should(Equal("github.com/iancmcc/jig"))
 	})
 
-	It("should match by repository name", func() {
-		results := testMatcher("jig").Match()
-		Ω(results[:4]).Should(ConsistOf("github.com/iancmcc/jig", "github.com/iandmcc/jig", "github.com/jort/jig", "gorthub.com/john/jig"))
-		Ω(results[5]).Should(Equal("github.com/iancmcc/jig2"))
-	})
+	//It("should match by repository name", func() {
+	//	results := testMatcher("jig").Match()
+	//	Ω(results[:4]).Should(ConsistOf("github.com/iancmcc/jig", "github.com/iandmcc/jig", "github.com/jort/jig", "gorthub.com/john/jig"))
+	//	Ω(results[5]).Should(Equal("github.com/iancmcc/jig2"))
+	//})
 
 })

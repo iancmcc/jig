@@ -83,3 +83,11 @@ func (t *CharSortedTrie) Filter(s string, threshold float64) []Value {
 	}
 	return matches
 }
+
+func (t *CharSortedTrie) FilterString(s string, threshold float64) []string {
+	var result []string
+	for _, val := range t.Filter(s, threshold) {
+		result = append(result, val.Value)
+	}
+	return result
+}
