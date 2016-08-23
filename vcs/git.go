@@ -3,12 +3,11 @@ package vcs
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	"context"
 	"io"
 	"os/exec"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/iancmcc/jig/manifest"
 )
@@ -30,8 +29,12 @@ func parseProgress(r io.Reader) <-chan Progress {
 	scanner := bufio.NewScanner(r)
 	scanner.Split(split)
 	go func() {
+		seen := map[string]struct{}{}
 		for scanner.Scan() {
-			var match []string
+			var (
+				begin bool
+				match []string
+			)
 			if match = relative.FindStringSubmatch(scanner.Text()); match == nil {
 				match = absolute.FindStringSubmatch(scanner.Text())
 			}
@@ -41,7 +44,12 @@ func parseProgress(r io.Reader) <-chan Progress {
 			op := match[2]
 			cur, _ := strconv.Atoi(match[4])
 			max, _ := strconv.Atoi(match[5])
+			if _, ok := seen[op]; !ok {
+				seen[op] = struct{}{}
+				begin = true
+			}
 			prog := Progress{
+				begin,
 				op,
 				cur,
 				max,
@@ -53,7 +61,7 @@ func parseProgress(r io.Reader) <-chan Progress {
 	return out
 }
 
-func RunGit(cmd string, args ...string) <-chan Progress {
+func (g *gitVCS) run(cmd string, args ...string) <-chan Progress {
 	command := exec.Command("git", append([]string{cmd, "--progress"}, args...)...)
 	progout, _ := command.StderrPipe()
 	command.Start()
@@ -61,21 +69,19 @@ func RunGit(cmd string, args ...string) <-chan Progress {
 }
 
 // Clone satisfies the VCS interface
-func (g *gitVCS) Clone(r manifest.Repo) <-chan Progress {
-	RunGit("clone", r.Repo)
-	return nil
+func (g *gitVCS) Clone(ctx context.Context, r manifest.Repo) <-chan Progress {
+	return g.run("clone", r.Repo)
 }
 
 // Pull satisfies the VCS interface
-func (g *gitVCS) Pull(r manifest.Repo) <-chan Progress {
-	return nil
+func (g *gitVCS) Pull(ctx context.Context, r manifest.Repo) <-chan Progress {
+	return g.run("pull", r.Repo)
 
 }
 
 // Checkout satisfies the VCS interface
-func (g *gitVCS) Checkout(r manifest.Repo) <-chan Progress {
-	return nil
-
+func (g *gitVCS) Checkout(ctx context.Context, r manifest.Repo) <-chan Progress {
+	return g.run("checkout", r.Repo)
 }
 
 // dropCR drops a terminal \r from the data.
@@ -101,21 +107,4 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	// Request more data.
 	return 0, nil, nil
 
-}
-
-func readStuff(scanner *bufio.Scanner) {
-	for scanner.Scan() {
-		fmt.Println("Scanned")
-		b := scanner.Text()
-		if match := relative.FindStringSubmatch(b); match != nil {
-			fmt.Println("Relative match")
-			fmt.Println(strings.Join(match[1:len(match)-1], ","))
-			continue
-		}
-		if match := absolute.FindStringSubmatch(b); match != nil {
-			fmt.Println("Absolute match")
-			fmt.Println(strings.Join(match[1:len(match)-1], ","))
-			continue
-		}
-	}
 }

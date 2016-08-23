@@ -15,8 +15,12 @@
 package cmd
 
 import (
-	"fmt"
+	"math"
+	"os"
+	"sync"
 
+	ui "github.com/gizak/termui"
+	"github.com/iancmcc/jig/manifest"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
 )
@@ -25,18 +29,67 @@ import (
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long:  `A`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		for prog := range vcs.RunGit("clone", "git@github.com:iancmcc/jig") {
-			fmt.Printf("%#v\n", prog)
+		man, err := manifest.FromJSON(os.Stdin)
+		if err != nil {
+			panic(err)
 		}
-		fmt.Println("restore called")
+
+		/*
+			for _, repo := range man.Repos {
+				// Ping it to check auth
+				c := exec.Command("git", "ls-remote", repo.Repo)
+				c.Stdin = nil
+				rc := c.Run()
+				fmt.Println(rc)
+
+			}
+		*/
+
+		err = ui.Init()
+		if err != nil {
+			panic(err)
+		}
+		defer ui.Close()
+
+		maxItemsPerColumn := float64(10)
+		ncols := int(math.Ceil(float64(len(man.Repos)) / maxItemsPerColumn))
+
+		span := 12 / ncols
+
+		cols := []*ui.Row{}
+
+		var wg sync.WaitGroup
+		for _, repo := range man.Repos {
+
+			widget := ui.NewGauge()
+			widget.Height = 3
+			widget.BarColor = ui.ColorGreen
+			widget.BorderLabel = repo.Repo
+			cols = append(cols, ui.NewCol(span, 0, widget))
+			if len(cols) == ncols {
+				ui.Body.AddRows(ui.NewRow(cols...))
+				cols = []*ui.Row{}
+			}
+
+			wg.Add(1)
+			go func(repo manifest.Repo, widget *ui.Gauge) {
+				defer wg.Done()
+				for prog := range vcs.Git.Clone(context, repo) {
+					if prog.IsBegin {
+						widget.Label = prog.Message
+					}
+					widget.Percent = int(float64(prog.Current) / float64(prog.Total) * 100)
+					ui.Render(widget)
+				}
+			}(repo, widget)
+
+		}
+		ui.Body.AddRows(ui.NewRow(cols...))
+		ui.Body.Align()
+		ui.Render(ui.Body)
+		wg.Wait()
 	},
 }
 
