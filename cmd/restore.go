@@ -15,11 +15,9 @@
 package cmd
 
 import (
-	"math"
+	"fmt"
 	"os"
-	"sync"
 
-	ui "github.com/gizak/termui"
 	"github.com/iancmcc/jig/manifest"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
@@ -47,49 +45,20 @@ var restoreCmd = &cobra.Command{
 			}
 		*/
 
-		err = ui.Init()
-		if err != nil {
-			panic(err)
-		}
-		defer ui.Close()
+		chans := []<-chan vcs.Progress{}
 
-		maxItemsPerColumn := float64(10)
-		ncols := int(math.Ceil(float64(len(man.Repos)) / maxItemsPerColumn))
+		//bar := pb.StartNew(0)
+		//go bar.Start()
 
-		span := 12 / ncols
-
-		cols := []*ui.Row{}
-
-		var wg sync.WaitGroup
 		for _, repo := range man.Repos {
-
-			widget := ui.NewGauge()
-			widget.Height = 3
-			widget.BarColor = ui.ColorGreen
-			widget.BorderLabel = repo.Repo
-			cols = append(cols, ui.NewCol(span, 0, widget))
-			if len(cols) == ncols {
-				ui.Body.AddRows(ui.NewRow(cols...))
-				cols = []*ui.Row{}
-			}
-
-			wg.Add(1)
-			go func(repo manifest.Repo, widget *ui.Gauge) {
-				defer wg.Done()
-				for prog := range vcs.Git.Clone(context, repo) {
-					if prog.IsBegin {
-						widget.Label = prog.Message
-					}
-					widget.Percent = int(float64(prog.Current) / float64(prog.Total) * 100)
-					ui.Render(widget)
-				}
-			}(repo, widget)
-
+			chans = append(chans, vcs.Git.Clone(repo))
 		}
-		ui.Body.AddRows(ui.NewRow(cols...))
-		ui.Body.Align()
-		ui.Render(ui.Body)
-		wg.Wait()
+		for prog := range vcs.CombinedProgress(chans...) {
+			fmt.Println(prog)
+			//bar.Total = int64(prog.Total)
+			//bar.Set(prog.Current)
+			//bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
+		}
 	},
 }
 

@@ -3,11 +3,11 @@ package vcs
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"io"
 	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/iancmcc/jig/manifest"
 )
@@ -24,7 +24,7 @@ var (
 type gitVCS struct {
 }
 
-func parseProgress(r io.Reader) <-chan Progress {
+func parseProgress(repo string, r io.Reader) <-chan Progress {
 	out := make(chan Progress)
 	scanner := bufio.NewScanner(r)
 	scanner.Split(split)
@@ -41,7 +41,10 @@ func parseProgress(r io.Reader) <-chan Progress {
 			if len(match) == 0 {
 				continue
 			}
-			op := match[2]
+			op := strings.TrimSpace(match[2])
+			if strings.HasPrefix(op, "reused") {
+				continue
+			}
 			cur, _ := strconv.Atoi(match[4])
 			max, _ := strconv.Atoi(match[5])
 			if _, ok := seen[op]; !ok {
@@ -49,6 +52,7 @@ func parseProgress(r io.Reader) <-chan Progress {
 				begin = true
 			}
 			prog := Progress{
+				repo,
 				begin,
 				op,
 				cur,
@@ -61,26 +65,26 @@ func parseProgress(r io.Reader) <-chan Progress {
 	return out
 }
 
-func (g *gitVCS) run(cmd string, args ...string) <-chan Progress {
+func (g *gitVCS) run(repo, cmd string, args ...string) <-chan Progress {
 	command := exec.Command("git", append([]string{cmd, "--progress"}, args...)...)
 	progout, _ := command.StderrPipe()
 	command.Start()
-	return parseProgress(progout)
+	return parseProgress(repo, progout)
 }
 
 // Clone satisfies the VCS interface
-func (g *gitVCS) Clone(ctx context.Context, r manifest.Repo) <-chan Progress {
-	return g.run("clone", r.Repo)
+func (g *gitVCS) Clone(r manifest.Repo) <-chan Progress {
+	return g.run(r.Repo, "clone", r.Repo)
 }
 
 // Pull satisfies the VCS interface
-func (g *gitVCS) Pull(ctx context.Context, r manifest.Repo) <-chan Progress {
-	return g.run("pull", r.Repo)
+func (g *gitVCS) Pull(r manifest.Repo) <-chan Progress {
+	return g.run(r.Repo, "pull", r.Repo)
 
 }
 
 // Checkout satisfies the VCS interface
-func (g *gitVCS) Checkout(ctx context.Context, r manifest.Repo) <-chan Progress {
+func (g *gitVCS) Checkout(r manifest.Repo) <-chan Progress {
 	return g.run("checkout", r.Repo)
 }
 
