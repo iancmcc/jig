@@ -24,18 +24,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	exact bool
+	limit int
+)
+
 // lsCmd represents the ls command
 var lsCmd = &cobra.Command{
 	Use:   "ls",
 	Short: "List repositories",
-	Long:  `List repositories below the current directory`,
+	Long:  `List repositories below the current directory, optionally sorted by similarity to a search string`,
 	Run: func(cmd *cobra.Command, args []string) {
 		here, _ := os.Getwd()
 		here = strings.TrimSuffix(here, "/") + "/"
 		repos := fs.DefaultFinder().FindBelowWithChildrenNamed(here, ".git", 1)
 		if len(args) == 0 {
+			var i int
 			for repo := range repos {
+				if limit > 0 && i >= limit {
+					break
+				}
 				fmt.Println(strings.TrimPrefix(repo, here))
+				i++
 			}
 			return
 		}
@@ -43,7 +53,10 @@ var lsCmd = &cobra.Command{
 		for repo := range repos {
 			matcher.Add(strings.TrimPrefix(repo, here))
 		}
-		for _, repo := range matcher.Match() {
+		for i, repo := range matcher.Match() {
+			if limit > 0 && i >= limit {
+				break
+			}
 			fmt.Println(repo)
 		}
 	},
@@ -51,6 +64,6 @@ var lsCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(lsCmd)
-	lsCmd.Flags().BoolP("exact", "x", false, "Return exact matches only (default is fuzzy matching)")
-
+	lsCmd.PersistentFlags().BoolVarP(&exact, "exact", "x", false, "Return exact matches only (default is fuzzy matching)")
+	lsCmd.PersistentFlags().IntVarP(&limit, "limit", "n", 0, "Limit the number of results returned (default is no limit)")
 }

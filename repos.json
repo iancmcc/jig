@@ -38,6 +38,10 @@
     },
     {
         "ref": "1.1.2",
+        "repo": "https://github.com/zenoss/ZenPacks.zenoss.ApacheMonitor"
+    },
+    {
+        "ref": "1.1.2",
         "repo": "https://github.com/zenoss/zminion.git"
     },
     {
