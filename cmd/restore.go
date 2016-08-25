@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cheggaaa/pb"
 	"github.com/iancmcc/jig/manifest"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
@@ -47,18 +48,18 @@ var restoreCmd = &cobra.Command{
 
 		chans := []<-chan vcs.Progress{}
 
-		//bar := pb.StartNew(0)
-		//go bar.Start()
+		bar := pb.StartNew(0)
+		go bar.Start()
 
 		for _, repo := range man.Repos {
 			chans = append(chans, vcs.Git.Clone(repo))
 		}
 		for prog := range vcs.CombinedProgress(chans...) {
-			fmt.Println(prog)
-			//bar.Total = int64(prog.Total)
-			//bar.Set(prog.Current)
-			//bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
+			bar.Total = int64(prog.Total)
+			bar.Set(prog.Current)
+			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
 		}
+		bar.Finish()
 	},
 }
 

@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,22 +26,28 @@ var (
 type gitVCS struct {
 }
 
-func parseProgress(repo string, r io.Reader) <-chan Progress {
+func parseProgress(repo string, r io.Reader) (<-chan Progress, <-chan bool) {
 	out := make(chan Progress)
 	scanner := bufio.NewScanner(r)
 	scanner.Split(split)
+	done := make(chan bool)
 	go func() {
 		seen := map[string]struct{}{}
 		for scanner.Scan() {
 			var (
 				begin bool
+				end   bool
 				match []string
 			)
-			if match = relative.FindStringSubmatch(scanner.Text()); match == nil {
-				match = absolute.FindStringSubmatch(scanner.Text())
+			text := strings.TrimSpace(scanner.Text())
+			if match = relative.FindStringSubmatch(text); match == nil {
+				match = absolute.FindStringSubmatch(text)
 			}
 			if len(match) == 0 {
 				continue
+			}
+			if strings.HasSuffix(text, "done.") {
+				end = true
 			}
 			op := strings.TrimSpace(match[2])
 			if strings.HasPrefix(op, "reused") {
@@ -54,6 +62,7 @@ func parseProgress(repo string, r io.Reader) <-chan Progress {
 			prog := Progress{
 				repo,
 				begin,
+				end,
 				op,
 				cur,
 				max,
@@ -61,36 +70,66 @@ func parseProgress(repo string, r io.Reader) <-chan Progress {
 			out <- prog
 		}
 		close(out)
+		close(done)
 	}()
-	return out
+	return out, done
 }
 
-func (g *gitVCS) run(repo, cmd string, args ...string) <-chan Progress {
+func (g *gitVCS) run(repo, wd, cmd string, args ...string) <-chan Progress {
 	command := exec.Command("git", append([]string{cmd, "--progress"}, args...)...)
+	command.Dir = wd
 	progout, _ := command.StderrPipe()
 	command.Start()
-	return parseProgress(repo, progout)
+	result, done := parseProgress(repo, progout)
+	go func() {
+		<-done
+		command.Wait()
+	}()
+	return result
+}
+
+func prepareDir(dir string) error {
+	return os.MkdirAll(filepath.Dir(dir), os.ModeDir|0775)
 }
 
 // Clone satisfies the VCS interface
 func (g *gitVCS) Clone(r manifest.Repo) <-chan Progress {
-	return g.run(r.Repo, "clone", r.Repo)
+	dir, err := RepoToPath(r.Repo)
+	if err != nil {
+		panic(err)
+	}
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		panic(err)
+	}
+	if err := prepareDir(dir); err != nil {
+		panic(err)
+	}
+	return g.run(r.Repo, ".", "clone", r.Repo, dir)
 }
 
 // Pull satisfies the VCS interface
 func (g *gitVCS) Pull(r manifest.Repo) <-chan Progress {
-	return g.run(r.Repo, "pull", r.Repo)
+	dir, err := RepoToPath(r.Repo)
+	if err != nil {
+		panic(err)
+	}
+	return g.run(r.Repo, dir, "pull", r.Repo)
 
 }
 
 // Checkout satisfies the VCS interface
 func (g *gitVCS) Checkout(r manifest.Repo) <-chan Progress {
-	return g.run("checkout", r.Repo)
+	dir, err := RepoToPath(r.Repo)
+	if err != nil {
+		panic(err)
+	}
+	return g.run(r.Repo, dir, "checkout", r.Ref)
 }
 
 // dropCR drops a terminal \r from the data.
 func dropCR(data []byte) []byte {
-	if len(data) > 0 && data[len(data)-1] == '' {
+	if len(data) > 0 && data[len(data)-1] == '\r' {
 		return data[0 : len(data)-1]
 	}
 	return data
@@ -101,6 +140,10 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		return 0, nil, nil
 	}
 	if i := bytes.IndexByte(data, ''); i >= 0 {
+		// We have a full newline-terminated line.
+		return i + 1, dropCR(data[0:i]), nil
+	}
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
 		// We have a full newline-terminated line.
 		return i + 1, dropCR(data[0:i]), nil
 	}

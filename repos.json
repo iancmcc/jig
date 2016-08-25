@@ -26,10 +26,6 @@
     },
     {
         "ref": "1.1.2",
-        "repo": "https://github.com/zenoss/zenoss-extjs.git"
-    },
-    {
-        "ref": "1.1.2",
         "repo": "https://github.com/zenoss/zenoss-protocols.git"
     },
     {

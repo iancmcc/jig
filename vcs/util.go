@@ -5,6 +5,16 @@ import (
 	"sync"
 )
 
+// Progress is a unit of progress reported by VCS
+type Progress struct {
+	Repo    string
+	IsBegin bool
+	IsEnd   bool
+	Message string
+	Current int
+	Total   int
+}
+
 // CombinedProgress combines the progress from multiple operations into
 // a single stream that reports on overall progress
 func CombinedProgress(progs ...<-chan Progress) <-chan Progress {
@@ -50,42 +60,34 @@ func CombinedProgress(progs ...<-chan Progress) <-chan Progress {
 				order = append(order, msg)
 			}
 
-			// If this is the beginning of a new stage for this ob, clean up others
-			if progress.IsBegin {
-				for k := range seen {
-					if k == msg {
-						continue
-					}
-					if v, ok := states[k]; ok {
-						delete(v, repo)
-						fmt.Println(k, v)
-						if len(v) == 0 {
-							delete(states, k)
-						}
-					}
-				}
-			}
-
 			// Set this value
 			statemap[repo] = progress
 
 			// Calculate the new total for the lowest one
 			for _, loweststate := range order {
-				if smap, ok := states[loweststate]; !ok {
+				smap, ok := states[loweststate]
+				if !ok {
 					continue
-				} else {
-					result := Progress{
-						Message: loweststate,
-						Repo:    fmt.Sprintf("%d repos", len(smap)),
-					}
-					for _, p := range smap {
-						result.Total += p.Total
-						result.Current += p.Current
-					}
-					resultchan <- result
-					break
 				}
+				result := Progress{
+					Message: loweststate,
+					Repo:    fmt.Sprintf("%d repos", len(smap)),
+				}
+				for _, p := range smap {
+					result.Total += p.Total
+					result.Current += p.Current
+				}
+				resultchan <- result
+				break
 
+			}
+
+			// If this is the end of a stage for this ob, clean up
+			if progress.IsEnd {
+				delete(statemap, repo)
+				if len(statemap) == 0 {
+					delete(states, msg)
+				}
 			}
 
 		}
