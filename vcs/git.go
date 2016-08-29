@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iancmcc/jig/manifest"
+	"github.com/iancmcc/jig/config"
 )
 
 var (
@@ -93,7 +93,7 @@ func prepareDir(dir string) error {
 }
 
 // Clone satisfies the VCS interface
-func (g *gitVCS) Clone(r manifest.Repo) <-chan Progress {
+func (g *gitVCS) Clone(r config.Repo) <-chan Progress {
 	dir, err := RepoToPath(r.Repo)
 	if err != nil {
 		panic(err)
@@ -109,7 +109,7 @@ func (g *gitVCS) Clone(r manifest.Repo) <-chan Progress {
 }
 
 // Pull satisfies the VCS interface
-func (g *gitVCS) Pull(r manifest.Repo) <-chan Progress {
+func (g *gitVCS) Pull(r config.Repo) <-chan Progress {
 	dir, err := RepoToPath(r.Repo)
 	if err != nil {
 		panic(err)
@@ -119,7 +119,7 @@ func (g *gitVCS) Pull(r manifest.Repo) <-chan Progress {
 }
 
 // Checkout satisfies the VCS interface
-func (g *gitVCS) Checkout(r manifest.Repo) <-chan Progress {
+func (g *gitVCS) Checkout(r config.Repo) <-chan Progress {
 	dir, err := RepoToPath(r.Repo)
 	if err != nil {
 		panic(err)

@@ -15,55 +15,39 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/cheggaaa/pb"
-	"github.com/iancmcc/jig/config"
-	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
 )
 
-// restoreCmd represents the restore command
-var restoreCmd = &cobra.Command{
-	Use:   "restore",
-	Short: "A brief description of your command",
-	Long:  `A`,
+// initCmd represents the init command
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize a Jig root",
+	Long:  `Initialize the directory passed as the root of a Jig source tree.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		man, err := config.FromJSON(os.Stdin)
-
+		dir, err := filepath.Abs(".jig")
 		if err != nil {
 			panic(err)
 		}
-
-		chans := []<-chan vcs.Progress{}
-
-		bar := pb.StartNew(0)
-		go bar.Start()
-
-		for _, repo := range man.Repos {
-			chans = append(chans, vcs.Git.Clone(repo))
+		if _, err := os.Stat(dir); err != nil {
+			os.Mkdir(dir, os.DirMode|0755)
 		}
-		for prog := range vcs.CombinedProgress(chans...) {
-			bar.Total = int64(prog.Total)
-			bar.Set(prog.Current)
-			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
-		}
-		bar.Finish()
 	},
 }
 
 func init() {
-	RootCmd.AddCommand(restoreCmd)
+	RootCmd.AddCommand(initCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// restoreCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// initCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// restoreCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 }

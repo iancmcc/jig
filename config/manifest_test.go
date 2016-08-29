@@ -1,9 +1,9 @@
-package manifest_test
+package config_test
 
 import (
 	"strings"
 
-	. "github.com/iancmcc/jig/manifest"
+	. "github.com/iancmcc/jig/config"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

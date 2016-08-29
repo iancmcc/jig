@@ -1,4 +1,4 @@
-package manifest
+package config
 
 import (
 	"encoding/json"
@@ -28,4 +28,9 @@ func FromJSON(r io.Reader) (*Manifest, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (m *Manifest) ToJSON(w io.Writer) error {
+	enc := json.NewEncoder(w)
+	return enc.Encode(m)
 }
