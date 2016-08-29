@@ -24,7 +24,7 @@ func IsJigRoot(path string) bool {
 	if path, err = filepath.Abs(path); err != nil {
 		return false
 	}
-	if _, err := os.Stat(dir); err != nil {
+	if _, err := os.Stat(filepath.Join(path, JigDirName)); err != nil {
 		return false
 	}
 	return true
@@ -33,6 +33,14 @@ func IsJigRoot(path string) bool {
 func FindClosestJigRoot(path string) (string, error) {
 	var err error
 	if path, err = filepath.Abs(path); err != nil {
-		return "", ErrNoJigDirFound
+		return "", ErrNoJigRoot
 	}
+	parent := path
+	for parent != "/" {
+		if IsJigRoot(parent) {
+			return parent, nil
+		}
+		parent = filepath.Dir(parent)
+	}
+	return "", ErrNoJigRoot
 }
