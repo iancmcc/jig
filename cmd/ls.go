@@ -35,6 +35,7 @@ var lsCmd = &cobra.Command{
 	Short: "List repositories",
 	Long:  `List repositories below the current directory, optionally sorted by similarity to a search string`,
 	Run: func(cmd *cobra.Command, args []string) {
+		here, _ := filepath.Abs("")
 		root, err := config.FindClosestJigRoot("")
 		if err != nil {
 			panic(err)
@@ -46,7 +47,8 @@ var lsCmd = &cobra.Command{
 				if limit > 0 && i >= limit {
 					break
 				}
-				fmt.Println(repo)
+				rel, _ := filepath.Rel(here, repo)
+				fmt.Println(rel)
 				i++
 			}
 			return
@@ -59,7 +61,8 @@ var lsCmd = &cobra.Command{
 			if limit > 0 && i >= limit {
 				break
 			}
-			fmt.Println(filepath.Join(root, repo))
+			rel, _ := filepath.Rel(here, filepath.Join(root, repo))
+			fmt.Println(rel)
 		}
 	},
 }
