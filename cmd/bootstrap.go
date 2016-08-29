@@ -24,7 +24,12 @@ var alias = "cdj"
 
 var bootstrap = `
 %s() {
-    cd $(jig ls -n1 $@)
+	CDDIR="$@"
+	if [ -z "$CDDIR" ]; then
+		cd $(jig root)
+	else
+		cd $(jig ls -n1 $CDDIR)
+	fi
 }
 `
 

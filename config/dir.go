@@ -36,6 +36,9 @@ func IsJigRoot(path string) bool {
 
 func FindClosestJigRoot(path string) (string, error) {
 	var err error
+	if path == "" {
+		path = os.Getenv("JIGROOT")
+	}
 	if path, err = filepath.Abs(path); err != nil {
 		return "", ErrNoJigRoot
 	}
