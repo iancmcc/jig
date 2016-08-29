@@ -19,15 +19,19 @@ func JigRootDir(path string) string {
 	return filepath.Join(path, JigDirName)
 }
 
+func dirExists(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		return false
+	}
+	return true
+}
+
 func IsJigRoot(path string) bool {
 	var err error
 	if path, err = filepath.Abs(path); err != nil {
 		return false
 	}
-	if _, err := os.Stat(filepath.Join(path, JigDirName)); err != nil {
-		return false
-	}
-	return true
+	return dirExists(filepath.Join(path, JigDirName))
 }
 
 func FindClosestJigRoot(path string) (string, error) {
@@ -43,4 +47,12 @@ func FindClosestJigRoot(path string) (string, error) {
 		parent = filepath.Dir(parent)
 	}
 	return "", ErrNoJigRoot
+}
+
+func CreateJigRoot(path string) error {
+	jd := filepath.Join(path, JigDirName)
+	if !dirExists(jd) {
+		return os.MkdirAll(jd, os.ModeDir|0755)
+	}
+	return nil
 }

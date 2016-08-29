@@ -15,11 +15,15 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/iancmcc/jig/config"
 	"github.com/spf13/cobra"
 )
+
+var force bool
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
@@ -27,27 +31,32 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a Jig root",
 	Long:  `Initialize the directory passed as the root of a Jig source tree.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dir, err := filepath.Abs(".jig")
+
+		var (
+			path string
+			err  error
+		)
+		if len(args) > 0 {
+			path = args[0]
+		}
+		path, err = filepath.Abs(path)
 		if err != nil {
 			panic(err)
 		}
-		if _, err := os.Stat(dir); err != nil {
-			os.Mkdir(dir, os.DirMode|0755)
+
+		// Validate that we are not nesting
+		if p, err := config.FindClosestJigRoot(path); err == nil && !force {
+			fmt.Printf("You're already inside a Jig root (%s). Pass -f to force creation anyway.\n", p)
+			os.Exit(1)
+		}
+
+		if err := config.CreateJigRoot(path); err != nil {
+			panic(err)
 		}
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(initCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// initCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
+	initCmd.Flags().BoolVarP(&force, "force", "f", false, "Force creation of a nested Jig root")
 }
