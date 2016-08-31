@@ -30,25 +30,69 @@ var restoreCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Long:  `A`,
 	Run: func(cmd *cobra.Command, args []string) {
-		man, err := config.FromJSON(os.Stdin)
+		var (
+			manifest *config.Manifest
+			err      error
+		)
+		root, err := config.FindClosestJigRoot("")
+		if err != nil {
+			panic(err)
+		}
+		if len(args) == 0 {
+			// Restore existing manifest
+			manifest, err = config.DefaultManifest("")
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			manifestpath := args[0]
+			switch manifestpath {
+			case "-":
+				manifest, err = config.FromJSON(os.Stdin)
+			default:
+				f, err := os.Open(manifestpath)
+				if err != nil {
+					panic(err)
+				}
+				defer f.Close()
+				manifest, err = config.FromJSON(f)
+			}
+
+		}
+
+		manifest.Save("")
 
 		if err != nil {
 			panic(err)
 		}
 
-		chans := []<-chan vcs.Progress{}
+		pullchans := []<-chan vcs.Progress{}
+		cochans := []<-chan vcs.Progress{}
+
+		for _, repo := range manifest.Repos {
+			pullchan, cochan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
+			if err != nil {
+				panic(err)
+			}
+			pullchans = append(pullchans, pullchan)
+			cochans = append(cochans, cochan)
+		}
 
 		bar := pb.StartNew(0)
 		go bar.Start()
 
-		for _, repo := range man.Repos {
-			chans = append(chans, vcs.Git.Clone(repo))
-		}
-		for prog := range vcs.CombinedProgress(chans...) {
+		for prog := range vcs.CombinedProgress(pullchans...) {
 			bar.Total = int64(prog.Total)
 			bar.Set(prog.Current)
 			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
 		}
+
+		for prog := range vcs.CombinedProgress(cochans...) {
+			bar.Total = int64(prog.Total)
+			bar.Set(prog.Current)
+			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
+		}
+
 		bar.Finish()
 	},
 }

@@ -75,8 +75,14 @@ func parseProgress(repo string, r io.Reader) (<-chan Progress, <-chan bool) {
 	return out, done
 }
 
-func (g *gitVCS) run(repo, wd, cmd string, args ...string) <-chan Progress {
-	command := exec.Command("git", append([]string{cmd, "--progress"}, args...)...)
+func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string) <-chan Progress {
+	if progress {
+		args = append([]string{cmd, "--progress"}, args...)
+	} else {
+		args = append([]string{cmd}, args...)
+
+	}
+	command := exec.Command("git", args...)
 	command.Dir = wd
 	progout, _ := command.StderrPipe()
 	command.Start()
@@ -93,38 +99,34 @@ func prepareDir(dir string) error {
 }
 
 // Clone satisfies the VCS interface
-func (g *gitVCS) Clone(r config.Repo) <-chan Progress {
-	dir, err := RepoToPath(r.Repo)
-	if err != nil {
-		panic(err)
-	}
-	dir, err = filepath.Abs(dir)
-	if err != nil {
-		panic(err)
-	}
+func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 	if err := prepareDir(dir); err != nil {
-		panic(err)
+		return nil, err
 	}
-	return g.run(r.Repo, ".", "clone", r.Repo, dir)
+	out := make(chan Progress)
+	go func() {
+		defer close(out)
+		for p := range g.run(r.Repo, ".", true, "clone", r.Repo, dir) {
+			out <- p
+		}
+		for p := range g.run(r.Repo, dir, true, "fetch", "--all") {
+			out <- p
+		}
+		g.run(r.Repo, dir, false, "branch", "--track", "develop", "origin/develop")
+		g.run(r.Repo, dir, false, "branch", "--track", "master", "origin/master")
+		g.run(r.Repo, dir, false, "flow", "init", "-d")
+	}()
+	return out, nil
 }
 
 // Pull satisfies the VCS interface
-func (g *gitVCS) Pull(r config.Repo) <-chan Progress {
-	dir, err := RepoToPath(r.Repo)
-	if err != nil {
-		panic(err)
-	}
-	return g.run(r.Repo, dir, "pull", r.Repo)
-
+func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
+	return g.run(r.Repo, dir, true, "pull"), nil
 }
 
 // Checkout satisfies the VCS interface
-func (g *gitVCS) Checkout(r config.Repo) <-chan Progress {
-	dir, err := RepoToPath(r.Repo)
-	if err != nil {
-		panic(err)
-	}
-	return g.run(r.Repo, dir, "checkout", r.Ref)
+func (g *gitVCS) Checkout(r *config.Repo, dir string) (<-chan Progress, error) {
+	return g.run(r.Repo, dir, true, "checkout", r.Ref), nil
 }
 
 // dropCR drops a terminal \r from the data.
