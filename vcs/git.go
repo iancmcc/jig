@@ -126,7 +126,7 @@ func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
 
 // Checkout satisfies the VCS interface
 func (g *gitVCS) Checkout(r *config.Repo, dir string) (<-chan Progress, error) {
-	return g.run(r.Repo, dir, true, "checkout", r.Ref), nil
+	return g.run(r.Repo, dir, false, "checkout", r.Ref), nil
 }
 
 // dropCR drops a terminal \r from the data.
