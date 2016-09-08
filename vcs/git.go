@@ -131,8 +131,15 @@ func (g *gitVCS) Checkout(r *config.Repo, dir string) (<-chan Progress, error) {
 
 // dropCR drops a terminal \r from the data.
 func dropCR(data []byte) []byte {
-	if len(data) > 0 && data[len(data)-1] == '\r' {
-		return data[0 : len(data)-1]
+	if len(data) > 0 {
+		// Older git progress
+		if data[len(data)-4] == '' {
+			return data[0 : len(data)-4]
+		}
+		// Current git progress
+		if data[len(data)-1] == '\r' {
+			return data[0 : len(data)-1]
+		}
 	}
 	return data
 }
