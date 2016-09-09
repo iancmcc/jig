@@ -28,6 +28,7 @@ import (
 
 var (
 	limit int
+	all   bool
 )
 
 // lsCmd represents the ls command
@@ -41,7 +42,23 @@ var lsCmd = &cobra.Command{
 		if err != nil {
 			logrus.Fatal("No jig root found. Use 'jig init' to create one.")
 		}
-		repos := fs.DefaultFinder().FindBelowWithChildrenNamed(root, ".git", 1)
+		var repos <-chan string
+		if all {
+			repos = fs.DefaultFinder().FindBelowWithChildrenNamed(root, ".git", 1)
+		} else {
+			ch := make(chan string)
+			repos = ch
+			go func() {
+				defer close(ch)
+				manifest, err := config.DefaultManifest("")
+				if err != nil {
+					return
+				}
+				for _, r := range manifest.Repos {
+					ch <- filepath.Join(root, r.Repo)
+				}
+			}()
+		}
 		if len(args) == 0 {
 			var i int
 			for repo := range repos {
@@ -71,4 +88,5 @@ var lsCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(lsCmd)
 	lsCmd.PersistentFlags().IntVarP(&limit, "limit", "n", 0, "Limit the number of results returned (default is no limit)")
+	lsCmd.PersistentFlags().BoolVarP(&all, "all", "a", false, "Show all repositories, not just those in the manifest")
 }
