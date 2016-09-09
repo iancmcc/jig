@@ -27,16 +27,17 @@ var (
 var RootCmd = &cobra.Command{
 	Use:   "jig",
 	Short: "Fast code tree management",
-	Long: `Jig allows you to navigate among your various repositories with ease.
-`,
+	Long:  `Jig allows you to navigate among your various repositories with ease.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if verbose {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
 	if err := RootCmd.Execute(); err != nil {
 		logrus.Fatal(err)
 	}
