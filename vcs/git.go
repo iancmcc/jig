@@ -94,8 +94,10 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 		"repo": short,
 	})
 	log.Debug("Executing git command")
+	var out bytes.Buffer
 	command := exec.Command("git", args...)
 	command.Dir = wd
+	command.Stdout = &out
 	progout, _ := command.StderrPipe()
 	command.Start()
 	result, done := parseProgress(repo, progout)
@@ -160,20 +162,29 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 	return out, nil
 }
 
-func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
+func (g *gitVCS) branch(r *config.Repo, dir string) ([]byte, bool, error) {
 	branch, err := g.runNoProgress(r.Repo, dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	if string(branch) == "HEAD" {
-		// It's a tag. Try to find the best tag
-		branch, err = g.runNoProgress(r.Repo, dir, "describe", "--exact-match", "--tags")
+	if string(branch) != "HEAD" {
+		return branch, true, nil
+	}
+	// It's a tag. Try to find the best tag
+	branch, err = g.runNoProgress(r.Repo, dir, "describe", "--exact-match", "--tags")
+	if err != nil {
+		branch, err = g.runNoProgress(r.Repo, dir, "rev-parse", "--short", "HEAD")
 		if err != nil {
-			branch, err = g.runNoProgress(r.Repo, dir, "rev-parse", "--short", "HEAD")
-			if err != nil {
-				return nil, err
-			}
+			return nil, false, err
 		}
+	}
+	return branch, false, nil
+}
+
+func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
+	branch, _, err := g.branch(r, dir)
+	if err != nil {
+		return nil, err
 	}
 	status, err := g.runNoProgress(r.Repo, dir, "status", "-z", "--porcelain")
 	if err != nil {
@@ -210,9 +221,16 @@ func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
 
 // Pull satisfies the VCS interface
 func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
+	_, isbranch, _ := g.branch(r, dir)
 	log := logrus.WithFields(logrus.Fields{
 		"repo": r.Repo,
 	})
+	if !isbranch {
+		log.Debug("Skipping pull since not on a branch")
+		p := make(chan Progress)
+		close(p)
+		return p, nil
+	}
 	log.Debug("Pulling git repo")
 	defer log.Debug("Pulled git repo")
 	return g.run(r.Repo, dir, true, "pull"), nil
