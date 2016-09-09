@@ -84,10 +84,16 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 
 	}
 	strcmd := strings.Join(append([]string{"git"}, args...), " ")
-	logrus.WithFields(logrus.Fields{
+	short, e := RepoToPath(repo)
+	if e != nil {
+		short = repo
+	}
+	log := logrus.WithFields(logrus.Fields{
 		"cmd":  strcmd,
-		"repo": repo,
-	}).Debug("Executing git command")
+		"path": wd,
+		"repo": short,
+	})
+	log.Debug("Executing git command")
 	command := exec.Command("git", args...)
 	command.Dir = wd
 	progout, _ := command.StderrPipe()
@@ -95,9 +101,32 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 	result, done := parseProgress(repo, progout)
 	go func() {
 		<-done
-		command.Wait()
+		if err := command.Wait(); err != nil {
+			log.WithError(err).Error("Problem running git command")
+		}
 	}()
 	return result
+}
+
+func (g *gitVCS) runNoProgress(repo, wd string, args ...string) ([]byte, error) {
+	strcmd := strings.Join(append([]string{"git"}, args...), " ")
+	short, e := RepoToPath(repo)
+	if e != nil {
+		short = repo
+	}
+	log := logrus.WithFields(logrus.Fields{
+		"cmd":  strcmd,
+		"path": wd,
+		"repo": short,
+	})
+	log.Debug("Executing git command")
+	command := exec.Command("git", args...)
+	command.Dir = wd
+	data, err := command.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	return bytes.TrimSpace(data), nil
 }
 
 func prepareDir(dir string) error {
@@ -129,6 +158,54 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 		g.run(r.Repo, dir, false, "flow", "init", "-d")
 	}()
 	return out, nil
+}
+
+func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
+	branch, err := g.runNoProgress(r.Repo, dir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return nil, err
+	}
+	if string(branch) == "HEAD" {
+		// It's a tag. Try to find the best tag
+		branch, err = g.runNoProgress(r.Repo, dir, "describe", "--exact-match", "--tags")
+		if err != nil {
+			branch, err = g.runNoProgress(r.Repo, dir, "rev-parse", "--short", "HEAD")
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	status, err := g.runNoProgress(r.Repo, dir, "status", "-z", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+	short, err := RepoToPath(r.Repo)
+	if err != nil {
+		return nil, err
+	}
+	result := &Status{
+		Branch:  strings.TrimSpace(string(branch)),
+		OrigRef: r.Ref,
+		Repo:    short,
+	}
+	for _, s := range bytes.Split(status, []byte{'\x00'}) {
+		if len(s) == 0 {
+			continue
+		}
+		t := s[:2]
+		if bytes.HasPrefix(t, []byte("?")) {
+			result.Untracked = true
+			continue
+		}
+		if bytes.HasPrefix(t, []byte(" ")) {
+			result.Unstaged = true
+			continue
+		}
+		if len(s) > 0 {
+			result.Staged = true
+		}
+	}
+	return result, nil
 }
 
 // Pull satisfies the VCS interface

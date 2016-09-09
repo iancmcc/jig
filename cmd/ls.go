@@ -23,6 +23,7 @@ import (
 	"github.com/iancmcc/jig/config"
 	"github.com/iancmcc/jig/fs"
 	"github.com/iancmcc/jig/match"
+	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
 )
 
@@ -55,7 +56,11 @@ var lsCmd = &cobra.Command{
 					return
 				}
 				for _, r := range manifest.Repos {
-					ch <- filepath.Join(root, r.Repo)
+					path, err := vcs.RepoToPath(r.Repo)
+					if err != nil {
+						continue
+					}
+					ch <- filepath.Join(root, path)
 				}
 			}()
 		}

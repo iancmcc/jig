@@ -73,8 +73,12 @@ var restoreCmd = &cobra.Command{
 		for _, repo := range manifest.Repos {
 			pullchan, cochan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
 			if err != nil {
+				short, e := vcs.RepoToPath(repo.Repo)
+				if e != nil {
+					short = repo.Repo
+				}
 				logrus.WithError(err).WithFields(logrus.Fields{
-					"repo": repo.Repo,
+					"repo": short,
 					"ref":  repo.Ref,
 				}).Error("Unable to update repository")
 			}

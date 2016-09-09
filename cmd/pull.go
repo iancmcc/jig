@@ -41,11 +41,11 @@ var pullCmd = &cobra.Command{
 		}
 		pullchans := []<-chan vcs.Progress{}
 		for _, repo := range manifest.Repos {
-			log := logrus.WithField("repo", repo.Repo)
 			dir, err := vcs.RepoToPath(repo.Repo)
 			if err != nil {
-				log.Error("Unable to parse repo")
+				logrus.WithField("repo", repo.Repo).Error("Unable to parse repo")
 			}
+			log := logrus.WithField("repo", dir)
 			dir = filepath.Join(root, dir)
 			dir, err = filepath.Abs(dir)
 			if err != nil {

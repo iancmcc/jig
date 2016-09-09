@@ -12,6 +12,14 @@ type VCS interface {
 	Clone(r *config.Repo, dir string) (<-chan Progress, error)
 	Pull(r *config.Repo, dir string) (<-chan Progress, error)
 	Checkout(r *config.Repo, dir string) (<-chan Progress, error)
+	Status(r *config.Repo, dir string) (*Status, error)
+}
+
+type Status struct {
+	Repo                        string
+	OrigRef                     string
+	Staged, Unstaged, Untracked bool
+	Branch                      string
 }
 
 func ApplyRepoConfig(root string, vcs VCS, repo *config.Repo) (<-chan Progress, <-chan Progress, error) {
