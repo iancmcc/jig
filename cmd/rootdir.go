@@ -17,7 +17,7 @@ package cmd
 import (
 	"fmt"
 
-	"metis/src/golang/src/github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 
 	"github.com/iancmcc/jig/config"
 	"github.com/spf13/cobra"
