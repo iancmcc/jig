@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/iancmcc/jig/config"
 )
 
@@ -82,6 +83,11 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 		args = append([]string{cmd}, args...)
 
 	}
+	strcmd := strings.Join(append([]string{"git"}, args...), " ")
+	logrus.WithFields(logrus.Fields{
+		"cmd":  strcmd,
+		"repo": repo,
+	}).Debug("Executing git command")
 	command := exec.Command("git", args...)
 	command.Dir = wd
 	progout, _ := command.StderrPipe()
@@ -100,6 +106,12 @@ func prepareDir(dir string) error {
 
 // Clone satisfies the VCS interface
 func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
+	log := logrus.WithFields(logrus.Fields{
+		"repo": r.Repo,
+		"ref":  r.Ref,
+	})
+	log.Debug("Cloning git repo")
+	defer log.Debug("Cloned git repo")
 	if err := prepareDir(dir); err != nil {
 		return nil, err
 	}
@@ -121,6 +133,11 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 
 // Pull satisfies the VCS interface
 func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
+	log := logrus.WithFields(logrus.Fields{
+		"repo": r.Repo,
+	})
+	log.Debug("Pulling git repo")
+	defer log.Debug("Pulled git repo")
 	return g.run(r.Repo, dir, true, "pull"), nil
 }
 
