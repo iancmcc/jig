@@ -22,7 +22,7 @@ import (
 	"github.com/iancmcc/jig/config"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
-	"metis/src/golang/src/github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 // pullCmd represents the pull command
