@@ -100,7 +100,11 @@ var statusCmd = &cobra.Command{
 			if stat.Untracked {
 				untracked = "*"
 			}
-			fmt.Fprintf(w, "%s\t%s (%s)\t%s\t%s\t%s\n", stat.Repo, stat.Branch, stat.OrigRef, staged, unstaged, untracked)
+			var orig string
+			if stat.Branch != stat.OrigRef {
+				orig = fmt.Sprintf(" (%s)", stat.OrigRef)
+			}
+			fmt.Fprintf(w, "%s\t%s%s\t%s\t%s\t%s\n", stat.Repo, stat.Branch, orig, staged, unstaged, untracked)
 		}
 		for stat := range statuschan {
 			ischanged := stat.Staged || stat.Unstaged || stat.Untracked
