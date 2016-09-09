@@ -15,10 +15,9 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/iancmcc/jig/config"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +30,6 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a Jig root",
 	Long:  `Initialize the directory passed as the root of a Jig source tree.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		var (
 			path string
 			err  error
@@ -41,17 +39,18 @@ var initCmd = &cobra.Command{
 		}
 		path, err = filepath.Abs(path)
 		if err != nil {
-			panic(err)
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"path": path,
+			}).Fatal("Unable to determine initialization path")
 		}
 
 		// Validate that we are not nesting
 		if p, err := config.FindClosestJigRoot(path); err == nil && !force {
-			fmt.Printf("You're already inside a Jig root (%s). Pass -f to force creation anyway.\n", p)
-			os.Exit(1)
+			logrus.WithField("root", p).Fatal("You're already inside a Jig root. Pass -f to force creation anyway.")
 		}
 
 		if err := config.CreateJigRoot(path); err != nil {
-			panic(err)
+			logrus.WithField("path", path).Fatal(err)
 		}
 	},
 }

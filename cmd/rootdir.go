@@ -17,6 +17,8 @@ package cmd
 import (
 	"fmt"
 
+	"metis/src/golang/src/github.com/Sirupsen/logrus"
+
 	"github.com/iancmcc/jig/config"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +31,7 @@ var rootdirCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		root, err := config.FindClosestJigRoot("")
 		if err != nil {
-			panic(err)
+			logrus.Fatal("No jig root found. Use 'jig init' to create one.")
 		}
 		fmt.Println(root)
 	},

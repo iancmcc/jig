@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/cheggaaa/pb"
 	"github.com/iancmcc/jig/config"
 	"github.com/iancmcc/jig/vcs"
@@ -36,13 +37,13 @@ var restoreCmd = &cobra.Command{
 		)
 		root, err := config.FindClosestJigRoot("")
 		if err != nil {
-			panic(err)
+			logrus.Fatal("No jig root found. Use 'jig init' to create one.")
 		}
 		if len(args) == 0 {
 			// Restore existing manifest
 			manifest, err = config.DefaultManifest("")
 			if err != nil {
-				panic(err)
+				logrus.Fatal("No repo manifest to restore. Pass a manifest file first.")
 			}
 		} else {
 			manifestpath := args[0]
@@ -52,7 +53,7 @@ var restoreCmd = &cobra.Command{
 			default:
 				f, err := os.Open(manifestpath)
 				if err != nil {
-					panic(err)
+					logrus.WithField("manifest", manifest).WithError(err).Fatal("Unable to open manifest file")
 				}
 				defer f.Close()
 				manifest, err = config.FromJSON(f)
@@ -60,11 +61,11 @@ var restoreCmd = &cobra.Command{
 
 		}
 
-		manifest.Save("")
-
 		if err != nil {
-			panic(err)
+			logrus.WithField("manifest", manifest).Fatal("Unable to parse manifest file")
 		}
+
+		manifest.Save("")
 
 		pullchans := []<-chan vcs.Progress{}
 		cochans := []<-chan vcs.Progress{}
@@ -72,7 +73,10 @@ var restoreCmd = &cobra.Command{
 		for _, repo := range manifest.Repos {
 			pullchan, cochan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
 			if err != nil {
-				panic(err)
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"repo": repo.Repo,
+					"ref":  repo.Ref,
+				}).Error("Unable to update repository")
 			}
 			pullchans = append(pullchans, pullchan)
 			cochans = append(cochans, cochan)

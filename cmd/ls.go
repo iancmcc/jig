@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/iancmcc/jig/config"
 	"github.com/iancmcc/jig/fs"
 	"github.com/iancmcc/jig/match"
@@ -38,7 +39,7 @@ var lsCmd = &cobra.Command{
 		here, _ := filepath.Abs("")
 		root, err := config.FindClosestJigRoot("")
 		if err != nil {
-			panic(err)
+			logrus.Fatal("No jig root found. Use 'jig init' to create one.")
 		}
 		repos := fs.DefaultFinder().FindBelowWithChildrenNamed(root, ".git", 1)
 		if len(args) == 0 {
