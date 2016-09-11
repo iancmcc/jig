@@ -89,3 +89,7 @@ func DefaultManifest(dir string) (*Manifest, error) {
 	defer file.Close()
 	return FromJSON(file)
 }
+
+func JigRootManifest() (*Manifest, error) {
+	return DefaultManifest("")
+}

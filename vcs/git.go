@@ -17,7 +17,7 @@ import (
 
 var (
 	// Git is the singleton driver
-	Git VCS = &gitVCS{}
+	Git = &gitVCS{}
 
 	absolute = regexp.MustCompile(`(remote: )?([\w\s]+):\s+()(\d+)()(.*)`)
 	relative = regexp.MustCompile(`(remote: )?([\w\s]+):\s+(\d+)% \((\d+)/(\d+)\)(.*)`)
@@ -74,6 +74,12 @@ func parseProgress(repo string, r io.Reader) (<-chan Progress, <-chan bool) {
 		close(done)
 	}()
 	return out, done
+}
+
+func rawGitRun(wd string, args ...string) ([]byte, error) {
+	command := exec.Command("git", args...)
+	command.Dir = wd
+	return command.CombinedOutput()
 }
 
 func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string) <-chan Progress {
@@ -162,27 +168,31 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 	return out, nil
 }
 
-func (g *gitVCS) branch(r *config.Repo, dir string) ([]byte, bool, error) {
-	branch, err := g.runNoProgress(r.Repo, dir, "rev-parse", "--abbrev-ref", "HEAD")
+func branch(dir string) ([]byte, bool, error) {
+	brnch, err := rawGitRun(dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return nil, false, err
 	}
-	if string(branch) != "HEAD" {
-		return branch, true, nil
+	if string(brnch) != "HEAD" {
+		return brnch, true, nil
 	}
 	// It's a tag. Try to find the best tag
-	branch, err = g.runNoProgress(r.Repo, dir, "describe", "--exact-match", "--tags")
+	brnch, err = rawGitRun(dir, "describe", "--exact-match", "--tags")
 	if err != nil {
-		branch, err = g.runNoProgress(r.Repo, dir, "rev-parse", "--short", "HEAD")
+		brnch, err = rawGitRun(dir, "rev-parse", "--short", "HEAD")
 		if err != nil {
 			return nil, false, err
 		}
 	}
-	return branch, false, nil
+	return brnch, false, nil
+}
+
+func (g *gitVCS) Branch(r *config.Repo, dir string) ([]byte, bool, error) {
+	return branch(dir)
 }
 
 func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
-	branch, _, err := g.branch(r, dir)
+	branch, _, err := g.Branch(r, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +231,7 @@ func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
 
 // Pull satisfies the VCS interface
 func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
-	_, isbranch, _ := g.branch(r, dir)
+	_, isbranch, _ := g.Branch(r, dir)
 	log := logrus.WithFields(logrus.Fields{
 		"repo": r.Repo,
 	})
@@ -271,4 +281,35 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	// Request more data.
 	return 0, nil, nil
 
+}
+
+func gitPath(path string) (string, error) {
+	data, err := rawGitRun(path, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// RepoFromPath turns a git path into a config.Repo
+func RepoFromPath(path string) (*config.Repo, error) {
+	var err error
+	if path, err = filepath.Abs(path); err != nil {
+		return nil, err
+	}
+	if path, err = gitPath(path); err != nil {
+		return nil, err
+	}
+	url, err := rawGitRun(path, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return nil, err
+	}
+	ref, _, err := branch(path)
+	if err != nil {
+		return nil, err
+	}
+	return &config.Repo{
+		Repo: strings.TrimSpace(string(url)),
+		Ref:  strings.TrimSpace(string(ref)),
+	}, nil
 }

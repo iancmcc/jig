@@ -13,21 +13,29 @@ type Matcher interface {
 }
 
 func DefaultMatcher(query string) Matcher {
-	return &JaroWinklerPathMatcher{
-		query:          query,
-		minScore:       0.5,
-		inbox:          make(chan string),
-		boostThreshold: 0.7,
-		prefixSize:     4,
+	return &LevenshteinPathMatcher{
+		query:            query,
+		insertionCost:    1,
+		deletionCost:     1,
+		substitutionCost: 2,
 	}
+	/*
+		return &JaroWinklerPathMatcher{
+			query:          query,
+			minScore:       0.5,
+			inbox:          make(chan string),
+			boostThreshold: 0.7,
+			prefixSize:     4,
+		}
+	*/
 }
 
-type JaroWinklerScored struct {
+type Scored struct {
 	value string
 	score float64
 }
 
-type ScoredArray []*JaroWinklerScored
+type ScoredArray []*Scored
 
 func (s ScoredArray) Len() int           { return len(s) }
 func (s ScoredArray) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
@@ -43,6 +51,14 @@ type Value struct {
 	key   string
 	value string
 	level int
+}
+
+type LevenshteinPathMatcher struct {
+	allstrings       []Value
+	query            string
+	insertionCost    int
+	deletionCost     int
+	substitutionCost int
 }
 
 type JaroWinklerPathMatcher struct {
@@ -77,12 +93,12 @@ func (m *JaroWinklerPathMatcher) Add(s string) {
 
 // Match returns the strings previously Added in sorted order
 func (m *JaroWinklerPathMatcher) Match() []string {
-	results := map[string]*JaroWinklerScored{}
+	results := map[string]*Scored{}
 	for _, value := range m.allstrings {
 		score := smetrics.JaroWinkler(m.query, value.value, m.boostThreshold, m.prefixSize)
 		v, ok := results[value.key]
 		if (!ok || v.score < score) && score >= m.minScore {
-			results[value.key] = &JaroWinklerScored{value.key, score}
+			results[value.key] = &Scored{value.key, score}
 		}
 	}
 	for _, v := range results {
@@ -90,4 +106,36 @@ func (m *JaroWinklerPathMatcher) Match() []string {
 	}
 	sort.Sort(m.scores)
 	return m.scores.ToStringArray()
+}
+
+func (m *LevenshteinPathMatcher) Match() []string {
+	results := map[string]*Scored{}
+	for _, value := range m.allstrings {
+		score := -float64(smetrics.WagnerFischer(m.query, value.value, m.insertionCost, m.deletionCost, m.substitutionCost))
+		v, ok := results[value.key]
+		if !ok || v.score < score {
+
+			results[value.key] = &Scored{value.key, score}
+		}
+	}
+	var scores ScoredArray
+	for _, v := range results {
+		scores = append(scores, v)
+	}
+	sort.Sort(scores)
+	return scores.ToStringArray()
+}
+
+func (m *LevenshteinPathMatcher) Add(s string) {
+	segments := Tokenize(s)
+	var (
+		path   string
+		maxlen = len(segments) - 1
+	)
+	for i := maxlen; i >= 0; i-- {
+		if len(segments[i]) > 0 {
+			path = segments[i] + path
+			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
+		}
+	}
 }
