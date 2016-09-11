@@ -23,6 +23,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iancmcc/jig/config"
+	"github.com/iancmcc/jig/utils"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,7 @@ var statusCmd = &cobra.Command{
 			maxlen int
 		)
 		for _, r := range manifest.Repos {
-			dir, err := vcs.RepoToPath(r.Repo)
+			dir, err := utils.RepoToPath(r.Repo)
 			if err != nil {
 				logrus.WithField("repo", r.Repo).Error("Unable to parse repo")
 				continue

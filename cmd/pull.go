@@ -18,11 +18,12 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/cheggaaa/pb"
 	"github.com/iancmcc/jig/config"
+	"github.com/iancmcc/jig/utils"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
-	"github.com/Sirupsen/logrus"
 )
 
 // pullCmd represents the pull command
@@ -41,7 +42,7 @@ var pullCmd = &cobra.Command{
 		}
 		pullchans := []<-chan vcs.Progress{}
 		for _, repo := range manifest.Repos {
-			dir, err := vcs.RepoToPath(repo.Repo)
+			dir, err := utils.RepoToPath(repo.Repo)
 			if err != nil {
 				logrus.WithField("repo", repo.Repo).Error("Unable to parse repo")
 			}

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/iancmcc/jig/utils"
 )
 
 var (
@@ -92,4 +94,27 @@ func DefaultManifest(dir string) (*Manifest, error) {
 
 func JigRootManifest() (*Manifest, error) {
 	return DefaultManifest("")
+}
+
+func (m *Manifest) Add(repo *Repo) error {
+	shortname, err := utils.RepoToPath(repo.Repo)
+	if err != nil {
+		return err
+	}
+	var found bool
+	for i, r := range m.Repos {
+		sname, err := utils.RepoToPath(r.Repo)
+		if err != nil {
+			continue
+		}
+		if sname == shortname {
+			m.Repos[i] = repo
+			found = true
+			break
+		}
+	}
+	if !found {
+		m.Repos = append(m.Repos, repo)
+	}
+	return nil
 }

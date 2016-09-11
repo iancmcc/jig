@@ -40,28 +40,16 @@ var addCmd = &cobra.Command{
 			}
 		}
 		target := args[0]
-		repo, err := vcs.RepoFromPath(target)
+		uri, ref, err := vcs.RepoFromPath(target)
 		if err != nil {
 			logrus.Fatal("Not a path to a valid git repository")
 		}
-		shortname, err := vcs.RepoToPath(repo.Repo)
-		if err != nil {
+		repo := &config.Repo{
+			Repo: uri,
+			Ref:  ref,
+		}
+		if err := manifest.Add(repo); err != nil {
 			logrus.WithField("uri", repo.Repo).Fatal("Unable to parse repository URI")
-		}
-		var found bool
-		for i, r := range manifest.Repos {
-			sname, err := vcs.RepoToPath(r.Repo)
-			if err != nil {
-				continue
-			}
-			if sname == shortname {
-				manifest.Repos[i] = repo
-				found = true
-				break
-			}
-		}
-		if !found {
-			manifest.Repos = append(manifest.Repos, repo)
 		}
 		manifest.Save(root)
 	},

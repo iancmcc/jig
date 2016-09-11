@@ -10,9 +10,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/iancmcc/jig/config"
+	"github.com/iancmcc/jig/utils"
 )
 
 var (
@@ -21,7 +23,21 @@ var (
 
 	absolute = regexp.MustCompile(`(remote: )?([\w\s]+):\s+()(\d+)()(.*)`)
 	relative = regexp.MustCompile(`(remote: )?([\w\s]+):\s+(\d+)% \((\d+)/(\d+)\)(.*)`)
+
+	mu        = &sync.Mutex{}
+	repolocks = map[string]*sync.Mutex{}
 )
+
+func getRepoLock(dir string) (mutex *sync.Mutex) {
+	var ok bool
+	mu.Lock()
+	defer mu.Unlock()
+	if mutex, ok = repolocks[dir]; !ok {
+		mutex = &sync.Mutex{}
+		repolocks[dir] = mutex
+	}
+	return mutex
+}
 
 // GitVCS is a git driver
 type gitVCS struct {
@@ -30,6 +46,7 @@ type gitVCS struct {
 func parseProgress(repo string, r io.Reader) (<-chan Progress, <-chan bool) {
 	out := make(chan Progress)
 	scanner := bufio.NewScanner(r)
+
 	scanner.Split(split)
 	done := make(chan bool)
 	go func() {
@@ -77,12 +94,22 @@ func parseProgress(repo string, r io.Reader) (<-chan Progress, <-chan bool) {
 }
 
 func rawGitRun(wd string, args ...string) ([]byte, error) {
+	if wd != "." {
+		lock := getRepoLock(wd)
+		lock.Lock()
+		defer lock.Unlock()
+	}
 	command := exec.Command("git", args...)
 	command.Dir = wd
 	return command.CombinedOutput()
 }
 
-func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string) <-chan Progress {
+func (g *gitVCS) run(repo, wd string, progress, logerror bool, cmd string, args ...string) <-chan Progress {
+	var lock *sync.Mutex
+	if wd != "." {
+		lock = getRepoLock(wd)
+		lock.Lock()
+	}
 	if progress {
 		args = append([]string{cmd, "--progress"}, args...)
 	} else {
@@ -90,7 +117,7 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 
 	}
 	strcmd := strings.Join(append([]string{"git"}, args...), " ")
-	short, e := RepoToPath(repo)
+	short, e := utils.RepoToPath(repo)
 	if e != nil {
 		short = repo
 	}
@@ -100,25 +127,31 @@ func (g *gitVCS) run(repo, wd string, progress bool, cmd string, args ...string)
 		"repo": short,
 	})
 	log.Debug("Executing git command")
-	var out bytes.Buffer
 	command := exec.Command("git", args...)
 	command.Dir = wd
-	command.Stdout = &out
 	progout, _ := command.StderrPipe()
 	command.Start()
 	result, done := parseProgress(repo, progout)
 	go func() {
+		if wd != "." {
+			defer lock.Unlock()
+		}
 		<-done
-		if err := command.Wait(); err != nil {
-			log.WithError(err).Error("Problem running git command")
+		if err := command.Wait(); err != nil && logerror {
+			log.Error("Problem running git command")
 		}
 	}()
 	return result
 }
 
 func (g *gitVCS) runNoProgress(repo, wd string, args ...string) ([]byte, error) {
+	if wd != "." {
+		lock := getRepoLock(wd)
+		lock.Lock()
+		defer lock.Unlock()
+	}
 	strcmd := strings.Join(append([]string{"git"}, args...), " ")
-	short, e := RepoToPath(repo)
+	short, e := utils.RepoToPath(repo)
 	if e != nil {
 		short = repo
 	}
@@ -155,15 +188,15 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 	out := make(chan Progress)
 	go func() {
 		defer close(out)
-		for p := range g.run(r.Repo, ".", true, "clone", r.Repo, dir) {
+		for p := range g.run(r.Repo, ".", true, true, "clone", r.Repo, dir) {
 			out <- p
 		}
-		for p := range g.run(r.Repo, dir, true, "fetch", "--all") {
+		for p := range g.run(r.Repo, dir, true, true, "fetch", "--all") {
 			out <- p
 		}
-		g.run(r.Repo, dir, false, "branch", "--track", "develop", "origin/develop")
-		g.run(r.Repo, dir, false, "branch", "--track", "master", "origin/master")
-		g.run(r.Repo, dir, false, "flow", "init", "-d")
+		g.run(r.Repo, dir, false, false, "branch", "--track", "develop", "origin/develop")
+		g.run(r.Repo, dir, false, false, "branch", "--track", "master", "origin/master")
+		g.run(r.Repo, dir, false, false, "flow", "init", "-d")
 	}()
 	return out, nil
 }
@@ -173,6 +206,7 @@ func branch(dir string) ([]byte, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	brnch = bytes.TrimSpace(brnch)
 	if string(brnch) != "HEAD" {
 		return brnch, true, nil
 	}
@@ -184,7 +218,7 @@ func branch(dir string) ([]byte, bool, error) {
 			return nil, false, err
 		}
 	}
-	return brnch, false, nil
+	return bytes.TrimSpace(brnch), false, nil
 }
 
 func (g *gitVCS) Branch(r *config.Repo, dir string) ([]byte, bool, error) {
@@ -200,7 +234,7 @@ func (g *gitVCS) Status(r *config.Repo, dir string) (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	short, err := RepoToPath(r.Repo)
+	short, err := utils.RepoToPath(r.Repo)
 	if err != nil {
 		return nil, err
 	}
@@ -243,12 +277,24 @@ func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
 	}
 	log.Debug("Pulling git repo")
 	defer log.Debug("Pulled git repo")
-	return g.run(r.Repo, dir, true, "pull"), nil
+	return g.run(r.Repo, dir, true, true, "pull"), nil
 }
 
 // Checkout satisfies the VCS interface
-func (g *gitVCS) Checkout(r *config.Repo, dir string) (<-chan Progress, error) {
-	return g.run(r.Repo, dir, false, "checkout", r.Ref), nil
+func (g *gitVCS) Checkout(r *config.Repo, dir string) error {
+	br, _, _ := branch(dir)
+	if br != nil && string(br) == r.Ref {
+		return nil
+	}
+	data, err := rawGitRun(dir, "checkout", r.Ref)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"err":  string(bytes.TrimSpace(data)),
+			"repo": r.Repo,
+			"ref":  r.Ref,
+		}).Error("Unable to checkout ref")
+	}
+	return err
 }
 
 // dropCR drops a terminal \r from the data.
@@ -291,25 +337,22 @@ func gitPath(path string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-// RepoFromPath turns a git path into a config.Repo
-func RepoFromPath(path string) (*config.Repo, error) {
+// RepoFromPath turns a git path into a uri and ref
+func RepoFromPath(path string) (string, string, error) {
 	var err error
 	if path, err = filepath.Abs(path); err != nil {
-		return nil, err
+		return "", "", err
 	}
 	if path, err = gitPath(path); err != nil {
-		return nil, err
+		return "", "", err
 	}
 	url, err := rawGitRun(path, "config", "--get", "remote.origin.url")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	ref, _, err := branch(path)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
-	return &config.Repo{
-		Repo: strings.TrimSpace(string(url)),
-		Ref:  strings.TrimSpace(string(ref)),
-	}, nil
+	return strings.TrimSpace(string(url)), strings.TrimSpace(string(ref)), nil
 }

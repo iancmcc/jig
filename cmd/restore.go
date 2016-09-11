@@ -21,9 +21,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/cheggaaa/pb"
 	"github.com/iancmcc/jig/config"
+	"github.com/iancmcc/jig/utils"
 	"github.com/iancmcc/jig/vcs"
 	"github.com/spf13/cobra"
 )
+
+var appnd bool
 
 // restoreCmd represents the restore command
 var restoreCmd = &cobra.Command{
@@ -65,15 +68,24 @@ var restoreCmd = &cobra.Command{
 			logrus.WithField("manifest", manifest).Fatal("Unable to parse manifest file")
 		}
 
-		manifest.Save("")
+		if appnd {
+			oldmanifest, err := config.JigRootManifest()
+			if err == nil {
+				for _, r := range manifest.Repos {
+					oldmanifest.Add(r)
+				}
+				manifest = oldmanifest
+			}
+		}
+
+		manifest.Save(root)
 
 		pullchans := []<-chan vcs.Progress{}
-		cochans := []<-chan vcs.Progress{}
 
 		for _, repo := range manifest.Repos {
-			pullchan, cochan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
+			pullchan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
 			if err != nil {
-				short, e := vcs.RepoToPath(repo.Repo)
+				short, e := utils.RepoToPath(repo.Repo)
 				if e != nil {
 					short = repo.Repo
 				}
@@ -83,7 +95,6 @@ var restoreCmd = &cobra.Command{
 				}).Error("Unable to update repository")
 			}
 			pullchans = append(pullchans, pullchan)
-			cochans = append(cochans, cochan)
 		}
 
 		bar := pb.StartNew(0)
@@ -95,27 +106,11 @@ var restoreCmd = &cobra.Command{
 			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
 		}
 
-		for prog := range vcs.CombinedProgress(cochans...) {
-			bar.Total = int64(prog.Total)
-			bar.Set(prog.Current)
-			bar.Prefix(fmt.Sprintf("%s (%s)", prog.Message, prog.Repo))
-		}
-
 		bar.Finish()
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(restoreCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// restoreCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// restoreCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
+	restoreCmd.Flags().BoolVarP(&appnd, "append", "a", false, "Merge manifest being restored with current manifest")
 }
