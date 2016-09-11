@@ -20,15 +20,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var alias = "cdj"
+var (
+	alias   = "cdj"
+	jigroot = ""
+)
 
 var bootstrap = `
 %s() {
 	CDDIR="$@"
 	if [ -z "$CDDIR" ]; then
-		cd $(jig root)
+		cd $(%s jig root)
 	else
-		cd $(jig ls -n1 $CDDIR)
+		cd $(%s jig ls -n1 $CDDIR)
 	fi
 }
 `
@@ -36,19 +39,17 @@ var bootstrap = `
 // bootstrapCmd represents the bootstrap command
 var bootstrapCmd = &cobra.Command{
 	Use:   "bootstrap",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Install jig tools into your shell",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf(bootstrap, alias)
+		if jigroot != "" {
+			jigroot = fmt.Sprintf("JIGROOT=%s", jigroot)
+		}
+		fmt.Printf(bootstrap, alias, jigroot, jigroot)
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(bootstrapCmd)
 	bootstrapCmd.Flags().StringVarP(&alias, "cd-command", "c", "cdj", "The command name to use for changing dirs")
+	bootstrapCmd.Flags().StringVarP(&jigroot, "with-jigroot", "j", "", "Use a custom jig root for this evaluation")
 }
