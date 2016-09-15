@@ -19,15 +19,15 @@ var (
 	}
 )
 
-func testMatcher(query string) *JaroWinklerPathMatcher {
+func testMatcher(query string) *LevenshteinPathMatcher {
 	matcher := DefaultMatcher(query)
 	for _, s := range paths {
 		matcher.Add(s)
 	}
-	return matcher.(*JaroWinklerPathMatcher)
+	return matcher.(*LevenshteinPathMatcher)
 }
 
-var _ = Describe("JaroWinklerPathMatcher", func() {
+var _ = Describe("DefaultPathMatcher", func() {
 
 	It("should match an exact match", func() {
 		results := testMatcher("github.com/iancmcc/jig").Match()

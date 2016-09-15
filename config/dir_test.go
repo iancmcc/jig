@@ -15,6 +15,7 @@ var _ = Describe("Jig root", func() {
 	var tempdir string
 
 	BeforeEach(func() {
+		os.Setenv("JIGROOT", "")
 		td, err := ioutil.TempDir("", "jig-")
 		if err != nil {
 			panic(err)
