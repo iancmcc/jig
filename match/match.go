@@ -13,12 +13,15 @@ type Matcher interface {
 }
 
 func DefaultMatcher(query string) Matcher {
-	return &LevenshteinPathMatcher{
-		query:            query,
-		insertionCost:    1,
-		deletionCost:     1,
-		substitutionCost: 2,
-	}
+	return &SubstringPathMatcher{query: query}
+	/*
+		return &LevenshteinPathMatcher{
+			query:            query,
+			insertionCost:    1,
+			deletionCost:     1,
+			substitutionCost: 2,
+		}
+	*/
 	/*
 		return &JaroWinklerPathMatcher{
 			query:          query,
@@ -69,6 +72,11 @@ type JaroWinklerPathMatcher struct {
 	boostThreshold float64
 	prefixSize     int
 	scores         ScoredArray
+}
+
+type SubstringPathMatcher struct {
+	allstrings []Value
+	query      string
 }
 
 func Tokenize(s string) []string {
@@ -127,6 +135,38 @@ func (m *LevenshteinPathMatcher) Match() []string {
 }
 
 func (m *LevenshteinPathMatcher) Add(s string) {
+	segments := Tokenize(s)
+	var (
+		path   string
+		maxlen = len(segments) - 1
+	)
+	for i := maxlen; i >= 0; i-- {
+		if len(segments[i]) > 0 {
+			path = segments[i] + path
+			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
+		}
+	}
+}
+
+func (m *SubstringPathMatcher) Match() []string {
+	results := map[string]*Scored{}
+	for _, value := range m.allstrings {
+		if !strings.Contains(value.value, m.query) {
+			continue
+		}
+		if _, ok := results[value.key]; !ok {
+			results[value.key] = &Scored{value.key, 1}
+		}
+	}
+	var scores ScoredArray
+	for _, v := range results {
+		scores = append(scores, v)
+	}
+	sort.Sort(scores)
+	return scores.ToStringArray()
+}
+
+func (m *SubstringPathMatcher) Add(s string) {
 	segments := Tokenize(s)
 	var (
 		path   string
