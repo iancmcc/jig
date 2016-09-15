@@ -1,4 +1,4 @@
-![jig](https://cloud.githubusercontent.com/assets/57971/18537414/e42b17d8-7aca-11e6-87a9-a2afe9351d0b.png)
+![jig](https://cloud.githubusercontent.com/assets/57971/18537765/096b8c9c-7acd-11e6-96b6-4f600c949189.png)
 
 Jig is a command-line utility that helps you manage your repositories.
 
