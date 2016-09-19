@@ -1,6 +1,7 @@
 package match
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -13,6 +14,14 @@ type Matcher interface {
 }
 
 func DefaultMatcher(query string) Matcher {
+	query = strings.Map(func(r rune) rune {
+		switch {
+		case r == '/' || r == '-' || r == '.':
+			return -1
+		default:
+			return r
+		}
+	}, query)
 	return &SubstringPathMatcher{query: query}
 	/*
 		return &LevenshteinPathMatcher{
@@ -178,4 +187,5 @@ func (m *SubstringPathMatcher) Add(s string) {
 			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
 		}
 	}
+	fmt.Println(m.allstrings)
 }

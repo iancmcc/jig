@@ -16,15 +16,16 @@ var (
 		"github.com/jort/jig",
 		"gorthub.com/john/jig",
 		"golang.x/blorgles/dinkum",
+		"golang.x/blorgles/thing-dinkum",
 	}
 )
 
-func testMatcher(query string) *LevenshteinPathMatcher {
+func testMatcher(query string) *SubstringPathMatcher {
 	matcher := DefaultMatcher(query)
 	for _, s := range paths {
 		matcher.Add(s)
 	}
-	return matcher.(*LevenshteinPathMatcher)
+	return matcher.(*SubstringPathMatcher)
 }
 
 var _ = Describe("DefaultPathMatcher", func() {
@@ -34,10 +35,9 @@ var _ = Describe("DefaultPathMatcher", func() {
 		Ω(results[0]).Should(Equal("github.com/iancmcc/jig"))
 	})
 
-	//It("should match by repository name", func() {
-	//	results := testMatcher("jig").Match()
-	//	Ω(results[:4]).Should(ConsistOf("github.com/iancmcc/jig", "github.com/iandmcc/jig", "github.com/jort/jig", "gorthub.com/john/jig"))
-	//	Ω(results[5]).Should(Equal("github.com/iancmcc/jig2"))
-	//})
+	It("should match a name with a hyphen", func() {
+		results := testMatcher("thing-dinkum").Match()
+		Ω(results[0]).Should(Equal("golang.x/blorgles/thing-dinkum"))
+	})
 
 })
