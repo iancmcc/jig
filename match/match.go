@@ -1,7 +1,6 @@
 package match
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -187,5 +186,4 @@ func (m *SubstringPathMatcher) Add(s string) {
 			m.allstrings = append(m.allstrings, Value{s, path, maxlen - i})
 		}
 	}
-	fmt.Println(m.allstrings)
 }
