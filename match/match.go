@@ -158,12 +158,17 @@ func (m *LevenshteinPathMatcher) Add(s string) {
 
 func (m *SubstringPathMatcher) Match() []string {
 	results := map[string]*Scored{}
+	smartCase := m.query != strings.ToLower(m.query)
 	for _, value := range m.allstrings {
-		if !strings.Contains(value.value, m.query) {
+		compare := value.value
+		if !smartCase {
+			compare = strings.ToLower(compare)
+		}
+		if !strings.Contains(compare, m.query) {
 			continue
 		}
 		if _, ok := results[value.key]; !ok {
-			results[value.key] = &Scored{value.key, 1}
+			results[value.key] = &Scored{value.key, 1.0 / float64(len(value.value))}
 		}
 	}
 	var scores ScoredArray
