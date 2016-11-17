@@ -275,9 +275,19 @@ func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
 		close(p)
 		return p, nil
 	}
-	log.Debug("Pulling git repo")
-	defer log.Debug("Pulled git repo")
-	return g.run(r.Repo, dir, true, true, "pull"), nil
+	out := make(chan Progress)
+	go func() {
+		log.Debug("Pulling git repo")
+		defer log.Debug("Pulled git repo")
+		defer close(out)
+		for p := range g.run(r.Repo, dir, true, true, "fetch", "--all") {
+			out <- p
+		}
+		for p := range g.run(r.Repo, dir, true, true, "pull") {
+			out <- p
+		}
+	}()
+	return out, nil
 }
 
 // Checkout satisfies the VCS interface
