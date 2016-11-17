@@ -269,20 +269,18 @@ func (g *gitVCS) Pull(r *config.Repo, dir string) (<-chan Progress, error) {
 	log := logrus.WithFields(logrus.Fields{
 		"repo": r.Repo,
 	})
-	if !isbranch {
-		log.Debug("Skipping pull since not on a branch")
-		p := make(chan Progress)
-		close(p)
-		return p, nil
-	}
 	out := make(chan Progress)
 	go func() {
-		log.Debug("Pulling git repo")
-		defer log.Debug("Pulled git repo")
 		defer close(out)
 		for p := range g.run(r.Repo, dir, true, true, "fetch", "--all") {
 			out <- p
 		}
+		if !isbranch {
+			log.Debug("Skipping pull since not on a branch")
+			return
+		}
+		log.Debug("Pulling git repo")
+		defer log.Debug("Pulled git repo")
 		for p := range g.run(r.Repo, dir, true, true, "pull") {
 			out <- p
 		}
