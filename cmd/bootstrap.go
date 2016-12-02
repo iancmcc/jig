@@ -31,7 +31,11 @@ var bootstrap = `
 	if [ -z "$CDDIR" ]; then
 		cd $(%s jig root)
 	else
-		cd $(%s jig ls -n1 $CDDIR)
+		DESTDIR=$(%s jig ls -n1 $CDDIR)
+		if [ -z "$DESTDIR" ]; then
+			return 1
+		fi
+		cd $DESTDIR
 	fi
 }
 `
