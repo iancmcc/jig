@@ -10,7 +10,7 @@ import (
 
 // VCS represents a version control system
 type VCS interface {
-	Clone(r *config.Repo, dir string) (<-chan Progress, error)
+	Clone(r *config.Repo, dir string, attemptShallow bool) (<-chan Progress, error)
 	Pull(r *config.Repo, dir string) (<-chan Progress, error)
 	Checkout(r *config.Repo, dir string) error
 	Status(r *config.Repo, dir string) (*Status, error)
@@ -25,7 +25,7 @@ type Status struct {
 }
 
 // ApplyRepoConfig is a function
-func ApplyRepoConfig(root string, vcs VCS, repo *config.Repo) (<-chan Progress, error) {
+func ApplyRepoConfig(root string, vcs VCS, repo *config.Repo, attemptShallow bool) (<-chan Progress, error) {
 	dir, err := utils.RepoToPath(repo.Repo)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func ApplyRepoConfig(root string, vcs VCS, repo *config.Repo) (<-chan Progress, 
 		defer close(out)
 		if _, err := os.Stat(dir); err != nil {
 			// Directory doesn't exist
-			clonechan, err := vcs.Clone(repo, dir)
+			clonechan, err := vcs.Clone(repo, dir, attemptShallow)
 			if err != nil {
 				return err
 			}

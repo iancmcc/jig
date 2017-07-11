@@ -175,7 +175,7 @@ func prepareDir(dir string) error {
 }
 
 // Clone satisfies the VCS interface
-func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
+func (g *gitVCS) Clone(r *config.Repo, dir string, attemptShallow bool) (<-chan Progress, error) {
 	log := logrus.WithFields(logrus.Fields{
 		"repo": r.Repo,
 		"ref":  r.Ref,
@@ -188,6 +188,12 @@ func (g *gitVCS) Clone(r *config.Repo, dir string) (<-chan Progress, error) {
 	out := make(chan Progress)
 	go func() {
 		defer close(out)
+		if attemptShallow {
+			for p := range g.run(r.Repo, ".", true, true, "clone", "--depth", "1", "-b", r.Ref, r.Repo, dir) {
+				out <- p
+			}
+			return
+		}
 		for p := range g.run(r.Repo, ".", true, true, "clone", r.Repo, dir) {
 			out <- p
 		}

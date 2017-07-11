@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var appnd bool
+var appnd, shallow bool
 
 // restoreCmd represents the restore command
 var restoreCmd = &cobra.Command{
@@ -83,7 +83,7 @@ var restoreCmd = &cobra.Command{
 		pullchans := []<-chan vcs.Progress{}
 
 		for _, repo := range manifest.Repos {
-			pullchan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo)
+			pullchan, err := vcs.ApplyRepoConfig(root, vcs.Git, repo, shallow)
 			if err != nil {
 				short, e := utils.RepoToPath(repo.Repo)
 				if e != nil {
@@ -113,4 +113,5 @@ var restoreCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(restoreCmd)
 	restoreCmd.Flags().BoolVarP(&appnd, "append", "a", false, "Merge manifest being restored with current manifest")
+	restoreCmd.Flags().BoolVarP(&shallow, "shallow", "s", false, "Attempt to do shallow clones, and don't git flow initialize")
 }
